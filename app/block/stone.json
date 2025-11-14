@@ -1,0 +1,20 @@
+#石材系列
+
+{
+  "(20, 21, 25)": ["minecraft:blackstone", 0],
+  "(85, 85, 85)": ["minecraft:stone", 0],
+  "(112, 112, 112)": ["minecraft:cobblestone", 0],
+  "(155, 155, 155)": ["minecraft:andesite", 0],
+  "(132, 135, 134)": ["minecraft:diorite", 0],
+  "(209, 202, 186)": ["minecraft:granite", 0],
+  "(54, 57, 61)": ["minecraft:deepslate", 0],
+  "(75, 75, 75)": ["minecraft:tuff", 0],
+  "(119, 119, 119)": ["minecraft:calcite", 0],
+  "(189, 174, 158)": ["minecraft:sandstone", 0],
+  "(37, 23, 16)": ["minecraft:netherrack", 0],
+  "(69, 29, 29)": ["minecraft:nether_bricks", 0],
+  "(45, 22, 27)": ["minecraft:crimson_nylium", 0],
+  "(22, 26, 31)": ["minecraft:warped_nylium", 0],
+  "(128, 128, 128)": ["minecraft:gravel", 0],
+  "(220, 220, 220)": ["minecraft:quartz_block", 0]
+}

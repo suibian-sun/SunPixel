@@ -1,0 +1,20 @@
+#带釉陶瓦
+
+{
+  "(20, 21, 25)": ["minecraft:black_glazed_terracotta", 0],
+  "(233, 236, 239)": ["minecraft:white_glazed_terracotta", 0],
+  "(160, 39, 34)": ["minecraft:red_glazed_terracotta", 0],
+  "(103, 117, 53)": ["minecraft:green_glazed_terracotta", 0],
+  "(53, 57, 157)": ["minecraft:blue_glazed_terracotta", 0],
+  "(247, 233, 163)": ["minecraft:yellow_glazed_terracotta", 0],
+  "(240, 118, 19)": ["minecraft:orange_glazed_terracotta", 0],
+  "(121, 42, 172)": ["minecraft:purple_glazed_terracotta", 0],
+  "(114, 71, 40)": ["minecraft:brown_glazed_terracotta", 0],
+  "(62, 68, 71)": ["minecraft:gray_glazed_terracotta", 0],
+  "(142, 142, 134)": ["minecraft:light_gray_glazed_terracotta", 0],
+  "(21, 137, 145)": ["minecraft:cyan_glazed_terracotta", 0],
+  "(189, 69, 180)": ["minecraft:magenta_glazed_terracotta", 0],
+  "(84, 109, 27)": ["minecraft:lime_glazed_terracotta", 0],
+  "(58, 175, 217)": ["minecraft:light_blue_glazed_terracotta", 0],
+  "(216, 129, 152)": ["minecraft:pink_glazed_terracotta", 0]
+}

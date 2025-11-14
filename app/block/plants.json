@@ -1,0 +1,21 @@
+#植物系列
+
+{
+  "(0, 124, 0)": ["minecraft:oak_leaves", 0],
+  "(97, 153, 97)": ["minecraft:spruce_leaves", 0],
+  "(128, 167, 85)": ["minecraft:birch_leaves", 0],
+  "(59, 71, 18)": ["minecraft:jungle_leaves", 0],
+  "(38, 66, 28)": ["minecraft:dark_oak_leaves", 0],
+  "(154, 161, 80)": ["minecraft:acacia_leaves", 0],
+  "(82, 121, 44)": ["minecraft:mangrove_leaves", 0],
+  "(89, 174, 89)": ["minecraft:grass", 0],
+  "(93, 182, 93)": ["minecraft:fern", 0],
+  "(0, 100, 0)": ["minecraft:vine", 0],
+  "(150, 150, 150)": ["minecraft:dead_bush", 0],
+  "(144, 144, 144)": ["minecraft:cactus", 0],
+  "(210, 125, 44)": ["minecraft:pumpkin", 0],
+  "(251, 147, 22)": ["minecraft:melon", 0],
+  "(34, 139, 34)": ["minecraft:lily_pad", 0],
+  "(75, 75, 75)": ["minecraft:brown_mushroom", 0],
+  "(255, 150, 150)": ["minecraft:red_mushroom", 0]
+}

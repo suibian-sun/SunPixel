@@ -1,0 +1,20 @@
+#自然方块
+
+{
+  "(97, 153, 97)": ["minecraft:grass_block", 0],
+  "(151, 109, 77)": ["minecraft:dirt", 0],
+  "(131, 105, 83)": ["minecraft:coarse_dirt", 0],
+  "(86, 58, 43)": ["minecraft:podzol", 0],
+  "(118, 85, 43)": ["minecraft:sand", 0],
+  "(37, 23, 16)": ["minecraft:soul_sand", 0],
+  "(28, 28, 28)": ["minecraft:obsidian", 0],
+  "(150, 150, 150)": ["minecraft:clay", 0],
+  "(151, 109, 77)": ["minecraft:mud", 0],
+  "(112, 112, 180)": ["minecraft:ice", 0],
+  "(160, 160, 255)": ["minecraft:packed_ice", 0],
+  "(210, 210, 255)": ["minecraft:blue_ice", 0],
+  "(255, 255, 255)": ["minecraft:snow_block", 0],
+  "(150, 150, 150)": ["minecraft:mycelium", 0],
+  "(102, 117, 49)": ["minecraft:moss_block", 0],
+  "(30, 30, 30)": ["minecraft:bedrock", 0]
+}
