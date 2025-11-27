@@ -11,6 +11,11 @@ import math
 import json
 from pathlib import Path
 import datetime
+import urllib.request
+import urllib.error
+import re
+import sys
+import threading
 
 class ImageToSchem:
     def __init__(self):
@@ -128,6 +133,7 @@ class ImageToSchem:
     
     def load_image(self, image_path):
         """加载图片，支持PNG和JPG格式"""
+        print("🖼️  正在加载图片...")
         # 检查文件扩展名
         ext = os.path.splitext(image_path)[1].lower()
         
@@ -163,6 +169,8 @@ class ImageToSchem:
             
         else:
             raise ValueError(f"不支持的图片格式: {ext}")
+        
+        print(f"✅ 图片加载完成: {self.original_width} × {self.original_height} 像素")
             
     def calculate_best_ratio(self, target_width, target_height):
         """计算最佳保持比例的尺寸"""
@@ -189,11 +197,15 @@ class ImageToSchem:
         """设置生成结构的尺寸"""
         self.width = max(1, width)
         self.height = max(1, height)
+        print(f"📐 设置生成尺寸: {self.width} × {self.height} 方块")
             
     def generate_schem(self):
         """生成schem数据结构"""
+        print("🔨 正在生成schem数据结构...")
+        
         # 初始化方块调色板
         self.block_palette = list(set([block[0] for block in self.color_to_block.values()]))
+        print(f"🎨 初始化调色板: {len(self.block_palette)} 种方块")
         
         # 创建方块数据数组 (二维数组: height × width)
         self.block_data = np.zeros((self.depth, self.height, self.width), dtype=int)
@@ -202,6 +214,14 @@ class ImageToSchem:
         # 计算缩放比例
         scale_x = self.original_width / self.width
         scale_y = self.original_height / self.height
+        
+        print("🔄 正在处理像素数据...")
+        total_pixels = self.width * self.height
+        processed_pixels = 0
+        
+        # 创建进度显示线程
+        progress_thread = ProgressDisplay(total_pixels, "处理像素")
+        progress_thread.start()
         
         # 填充方块数据
         for y in range(self.height):
@@ -230,9 +250,20 @@ class ImageToSchem:
                 # 单层结构，只在z=0位置放置方块
                 self.block_data[0, y, x] = block_index
                 self.block_data_values[0, y, x] = block_data
+                
+                processed_pixels += 1
+                progress_thread.update(processed_pixels)
+        
+        # 停止进度显示
+        progress_thread.stop()
+        progress_thread.join()
+        
+        print("✅ schem数据结构生成完成")
         
     def save_schem(self, output_path):
         """保存为Sponge格式的.schem文件"""
+        print("💾 正在保存schem文件...")
+        
         # 确保输出文件后缀正确
         if not output_path.lower().endswith('.schem'):
             output_path += '.schem'
@@ -273,6 +304,7 @@ class ImageToSchem:
         nbt_file = nbtlib.File(schematic)
         nbt_file.save(output_path, gzipped=True)
         
+        print(f"✅ schem文件保存完成: {output_path}")
         # 返回转换统计信息
         return self.width, self.height, self.width * self.height
         
@@ -281,6 +313,7 @@ class ImageToSchem:
         if selected_blocks is None:
             selected_blocks = []
             
+        print("🚀 开始转换流程...")
         # 加载方块映射
         if not self.load_block_mappings(selected_blocks):
             return None
@@ -311,58 +344,215 @@ class ImageToSchem:
         except Exception as e:
             print(f"❌ 转换过程中发生错误: {e}")
             import traceback
-            traceback.print_exc()  # 打印详细错误信息
+            traceback.print_exc()
             return None
 
 
+class ProgressDisplay(threading.Thread):
+    """实时进度显示线程"""
+    def __init__(self, total, description="处理"):
+        super().__init__()
+        self.total = total
+        self.description = description
+        self.current = 0
+        self.running = True
+        self.daemon = True
+        
+    def update(self, value):
+        """更新进度"""
+        self.current = value
+        
+    def stop(self):
+        """停止进度显示"""
+        self.running = False
+        
+    def run(self):
+        """运行进度显示"""
+        while self.running and self.current < self.total:
+            progress = (self.current / self.total) * 100
+            bar_length = 30
+            filled_length = int(bar_length * self.current // self.total)
+            bar = '█' * filled_length + '░' * (bar_length - filled_length)
+            
+            sys.stdout.write(f'\r📊 {self.description}: [{bar}] {self.current}/{self.total} ({progress:.1f}%)')
+            sys.stdout.flush()
+            time.sleep(0.1)
+        
+        # 显示最终进度
+        if self.current >= self.total:
+            progress = 100.0
+            bar = '█' * bar_length
+            sys.stdout.write(f'\r📊 {self.description}: [{bar}] {self.current}/{self.total} ({progress:.1f}%) ✅\n')
+            sys.stdout.flush()
+
+
+def get_gradient_colors(num_colors):
+    """生成渐变颜色序列"""
+    # 定义12种渐变颜色（从蓝色到紫色到粉色）
+    gradient_colors = [
+        '\033[38;5;27m',   # 深蓝
+        '\033[38;5;33m',   # 蓝色
+        '\033[38;5;39m',   # 亮蓝
+        '\033[38;5;45m',   # 青蓝
+        '\033[38;5;51m',   # 青色
+        '\033[38;5;50m',   # 蓝绿
+        '\033[38;5;49m',   # 绿青
+        '\033[38;5;48m',   # 青色
+        '\033[38;5;129m',  # 紫色
+        '\033[38;5;165m',  # 亮紫
+        '\033[38;5;201m',  # 粉紫
+        '\033[38;5;207m',  # 粉色
+        '\033[38;5;213m',  # 亮粉
+        '\033[38;5;219m',  # 浅粉
+    ]
+    
+    # 根据需要的颜色数量生成渐变序列
+    if num_colors <= len(gradient_colors):
+        return gradient_colors[:num_colors]
+    
+    # 如果需要更多颜色，在现有颜色间插值
+    result = []
+    for i in range(num_colors):
+        pos = i / (num_colors - 1) * (len(gradient_colors) - 1)
+        idx = int(pos)
+        result.append(gradient_colors[idx])
+    
+    return result
+
+
 def display_logo():
-    """显示程序logo"""
-    logo = """
-    ╔═════════════════════════════════════════════╗
-    ║  ███████╗██╗   ██╗███╗   ██╗                ║
-    ║  ██╔════╝██║   ██║████╗  ██║                ║
-    ║  ███████╗██║   ██║██╔██╗ ██║                ║
-    ║  ╚════██║██║   ██║██║╚██╗██║                ║
-    ║  ███████║╚██████╔╝██║ ╚████║                ║
-    ║  ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝                ║
-    ║           ██████╗ ██╗██╗  ██╗███████╗██     ║
-    ║           ██╔══██╗██║╚██╗██╔╝██╔════╝██     ║
-    ║           ██████╔╝██║ ╚███╔╝ █████╗  ██     ║
-    ║           ██╔═══╝ ██║ ██╔██╗ ██╔══╝  ██     ║
-    ║           ██║     ██║██╔╝ ██╗███████╗██╗    ║
-    ║           ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝    ║
-    ╚═════════════════════════════════════════════╝
-    """
-    print(logo)
+    """显示渐变颜色程序logo"""
+    # 定义logo的每一行
+    logo_lines = [
+        "╔═════════════════════════════════════════════╗",
+        "║  ███████╗██╗   ██╗███╗   ██║                ║",
+        "║  ██╔════╝██║   ██║████╗  ██║                ║",
+        "║  ███████╗██║   ██║██╔██╗ ██║                ║",
+        "║  ╚════██║██║   ██║██║╚██╗██║                ║",
+        "║  ███████║╚██████╔╝██║ ╚████║                ║",
+        "║  ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝                ║",
+        "║           ██████╗ ██╗██╗  ██╗███████╗██     ║",
+        "║           ██╔══██╗██║╚██╗██╔╝██╔════╝██     ║",
+        "║           ██████╔╝██║ ╚███╔╝ █████╗  ██     ║",
+        "║           ██╔═══╝ ██║ ██╔██╗ ██╔══╝  ██     ║",
+        "║           ██║     ██║██╔╝ ██╗███████╗██╗    ║",
+        "║           ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝    ║",
+        "╚═════════════════════════════════════════════╝"
+    ]
+    
+    # 生成渐变颜色
+    gradient = get_gradient_colors(len(logo_lines))
+    reset_color = '\033[0m'
+    
+    # 打印渐变logo
+    print()
+    for i, line in enumerate(logo_lines):
+        print(f"{gradient[i]}{line}{reset_color}")
+    
+    # 打印开源信息（使用渐变颜色）
+    info_lines = [
+        "┌───────────────────────────────────────────┐",
+        "│         Open source - SunPixel            │",
+        "│ https://github.com/suibian-sun/SunPixel   │",
+        "└───────────────────────────────────────────┘",
+        "Authors: suibian-sun"
+    ]
+    
+    info_gradient = get_gradient_colors(len(info_lines))
+    print()
+    for i, line in enumerate(info_lines):
+        print(f"{info_gradient[i]}{line}{reset_color}")
+    print()
+
+
+def extract_date_from_content(content):
+    date_pattern = r'\b(\d{4}-\d{1,2}-\d{1,2})\b'
+    matches = re.findall(date_pattern, content)
+    
+    if matches:
+        return matches[0]
+        
+    return datetime.datetime.now().strftime("%Y-%m-%d")
 
 
 def get_latest_announcement():
-    """获取最新的公告内容"""
-    changelog_dir = Path("Changelog")
-    
-    if not changelog_dir.exists():
-        changelog_dir.mkdir(exist_ok=True)
-        return None
-    
-    # 获取所有.md文件
-    md_files = list(changelog_dir.glob("*.md"))
-    
-    if not md_files:
-        return None
-    
-    # 按文件名（日期）排序，获取最新的文件
-    latest_file = sorted(md_files, reverse=True)[0]
+    announcement_url = "https://raw.githubusercontent.com/suibian-sun/SunPixel/refs/heads/main/app/Changelog/new.md"
     
     try:
-        with open(latest_file, 'r', encoding='utf-8') as f:
-            content = f.read().strip()
+        with urllib.request.urlopen(announcement_url, timeout=10) as response:
+            content = response.read().decode('utf-8').strip()
         
-        # 提取日期（从文件名）
-        date_str = latest_file.stem
+        # 从内容中提取日期
+        date_str = extract_date_from_content(content)
         return date_str, content
-    except Exception as e:
-        print(f"❌ 读取公告文件时出错: {e}")
+        
+    except urllib.error.URLError as e:
+        print(f"⚠️  无法获取最新公告: {e}")
         return None
+    except Exception as e:
+        print(f"⚠️  获取公告时出错: {e}")
+        return None
+
+
+def format_announcement_content(content):
+    """格式化公告内容，在标题和内容之间添加空行"""
+    lines = content.split('\n')
+    formatted_lines = []
+    
+    for i, line in enumerate(lines):
+        formatted_lines.append(line)
+        if "更新内容如下" in line and i + 1 < len(lines) and lines[i + 1].strip():
+            formatted_lines.append("")
+    
+    return '\n'.join(formatted_lines)
+
+
+def format_announcement_box(date_str, content):
+    """格式化公告显示框，自动调整边框宽度"""
+    formatted_content = format_announcement_content(content)
+    lines = formatted_content.split('\n')
+    max_line_length = max(len(line) for line in lines if line.strip())
+    
+    # 计算边框宽度（最长行长度 + 4个字符的边距）
+    box_width = max(60, max_line_length + 4)  # 最小宽度为60
+    
+    # 构建边框
+    top_border = "╔" + "═" * (box_width - 2) + "╗"
+    middle_border = "╠" + "═" * (box_width - 2) + "╣"
+    bottom_border = "╚" + "═" * (box_width - 2) + "╝"
+    
+    # 构建格式化内容
+    formatted_lines = []
+    
+    # 添加标题行
+    title_line = f"║ 📅 发布日期: {date_str}"
+    formatted_lines.append(title_line.ljust(box_width - 1) + "║")
+    
+    # 添加中间边框
+    formatted_lines.append(middle_border)
+    
+    # 添加内容行
+    for line in lines:
+        if line.strip():  # 只显示非空行
+            # 处理长文本换行
+            while len(line) > box_width - 4:
+                segment = line[:box_width - 4]
+                formatted_line = f"║ {segment}"
+                formatted_lines.append(formatted_line.ljust(box_width - 1) + "║")
+                line = line[box_width - 4:]
+            
+            if line.strip():  # 确保行不为空
+                formatted_line = f"║ {line}"
+                formatted_lines.append(formatted_line.ljust(box_width - 1) + "║")
+        else:
+            # 空行也保留，用于间距
+            formatted_lines.append(f"║{' ' * (box_width - 2)}║")
+    
+    # 组合所有部分
+    formatted_content = [top_border] + formatted_lines + [bottom_border]
+    
+    return formatted_content
+
 
 def display_announcement():
     """显示最新公告"""
@@ -370,25 +560,13 @@ def display_announcement():
     
     if announcement:
         date_str, content = announcement
+        formatted_announcement = format_announcement_box(date_str, content)
+        
         print("\n📢 最新公告")
-        print("╔" + "═" * 58 + "╗")
-        print(f"║ 📅 发布日期: {date_str}".ljust(54) + "║")
-        print("╠" + "═" * 58 + "╣")
-        
-        # 分行显示公告内容
-        lines = content.split('\n')
-        for line in lines:
-            if line.strip():  # 只显示非空行
-                # 处理长文本换行
-                while len(line) > 56:
-                    print(f"║ {line[:56]}".ljust(59) + "║")
-                    line = line[56:]
-                if line.strip():  # 确保行不为空
-                    print(f"║ {line}".ljust(59) + "║")
-        
-        print("╚" + "═" * 58 + "╝")
+        for line in formatted_announcement:
+            print(line)
     else:
-        print("\n📢 暂无公告")
+        print("\n📢 暂无公告或无法获取公告")
 
 
 def get_block_display_name(block_file):
@@ -397,10 +575,10 @@ def get_block_display_name(block_file):
         with open(block_file, 'r', encoding='utf-8') as f:
             first_line = f.readline().strip()
             if first_line.startswith('# '):
-                return first_line[2:]  # 去掉#和空格
+                return first_line[2:] 
     except:
         pass
-    return block_file.stem  # 如果获取失败，返回文件名
+    return block_file.stem 
 
 
 def get_available_blocks():
@@ -408,7 +586,6 @@ def get_available_blocks():
     block_dir = Path("block")
     if not block_dir.exists():
         block_dir.mkdir(exist_ok=True)
-        # 创建默认的方块映射文件
         create_default_block_files()
         
     blocks_info = {}
@@ -511,12 +688,11 @@ def get_user_input():
             continue
             
         try:
-            # 尝试打开图片以验证有效性
             if ext == '.png':
                 with open(input_path, 'rb') as f:
                     reader = png.Reader(file=f)
                     width, height, _, _ = reader.read()
-            else:  # JPG
+            else:
                 img = Image.open(input_path)
                 width, height = img.size
                 
@@ -554,7 +730,7 @@ def get_user_input():
         try:
             if 'x' in size_input:
                 width, height = map(int, size_input.lower().split('x'))
-            elif '×' in size_input:  # 处理中文乘号
+            elif '×' in size_input:
                 width, height = map(int, size_input.lower().split('×'))
             else:
                 print("❌ 请输入有效的尺寸格式，例如 64x64")
@@ -569,14 +745,154 @@ def get_user_input():
     
     return input_path, str(output_file), width, height, selected_blocks
 
+
+def verify_schem_file(file_path):
+    """验证schem文件内容并修复可能的错误"""
+    print("\n🔍 正在验证生成的schem文件...")
+    
+    try:
+        # 加载schem文件
+        nbt_file = nbtlib.load(file_path, gzipped=True)
+        
+        # 检查必要的字段
+        required_fields = ["Version", "DataVersion", "Width", "Height", "Length", "Palette", "BlockData"]
+        missing_fields = [field for field in required_fields if field not in nbt_file]
+        
+        if missing_fields:
+            print(f"❌ 文件缺少必要字段: {', '.join(missing_fields)}")
+            return False, "文件结构不完整"
+        
+        # 验证尺寸数据
+        width = nbt_file["Width"]
+        height = nbt_file["Height"]
+        length = nbt_file["Length"]
+        
+        if width <= 0 or height <= 0 or length <= 0:
+            print("❌ 文件尺寸数据无效")
+            return False, "尺寸数据无效"
+        
+        # 验证调色板
+        palette = nbt_file["Palette"]
+        if not palette:
+            print("❌ 调色板为空")
+            return False, "调色板为空"
+        
+        # 验证方块数据
+        block_data = nbt_file["BlockData"]
+        expected_size = width * height * length
+        
+        if len(block_data) != expected_size:
+            print(f"❌ 方块数据长度不匹配: 期望 {expected_size}, 实际 {len(block_data)}")
+            return False, "方块数据长度不匹配"
+        
+        # 检查方块数据中的值是否在调色板范围内
+        palette_size = len(palette)
+        out_of_range_blocks = [block_id for block_id in block_data if block_id >= palette_size]
+        
+        if out_of_range_blocks:
+            print(f"❌ 发现 {len(out_of_range_blocks)} 个超出调色板范围的方块ID")
+            return False, "方块ID超出调色板范围"
+        
+        print("✅ schem文件验证通过")
+        return True, "文件验证通过"
+        
+    except Exception as e:
+        print(f"❌ 验证过程中发生错误: {e}")
+        return False, f"验证错误: {str(e)}"
+
+
+def fix_schem_file(file_path, issue):
+    """根据问题修复schem文件"""
+    print(f"\n🔧 正在尝试修复schem文件: {issue}")
+    
+    try:
+        # 加载原始文件
+        nbt_file = nbtlib.load(file_path, gzipped=True)
+        
+        fix_description = ""
+        
+        # 根据具体问题应用修复
+        if "方块数据长度不匹配" in issue:
+            # 重新生成正确的方块数据
+            width = nbt_file["Width"]
+            height = nbt_file["Height"]
+            length = nbt_file["Length"]
+            expected_size = width * height * length
+            
+            # 创建新的方块数据（全部设为0）
+            new_block_data = nbtlib.ByteArray([0] * expected_size)
+            nbt_file["BlockData"] = new_block_data
+            
+            fix_description = f"重置方块数据为默认值，长度: {expected_size}"
+            
+        elif "方块ID超出调色板范围" in issue:
+            # 将超出范围的方块ID设为0
+            palette_size = len(nbt_file["Palette"])
+            block_data = nbt_file["BlockData"]
+            
+            fixed_blocks = 0
+            for i in range(len(block_data)):
+                if block_data[i] >= palette_size:
+                    block_data[i] = 0
+                    fixed_blocks += 1
+            
+            fix_description = f"修复了 {fixed_blocks} 个超出调色板范围的方块ID"
+            
+        else:
+            # 通用修复：确保所有必要字段都存在
+            if "Version" not in nbt_file:
+                nbt_file["Version"] = Int(2)
+            if "DataVersion" not in nbt_file:
+                nbt_file["DataVersion"] = Int(3100)
+            if "Metadata" not in nbt_file:
+                nbt_file["Metadata"] = Compound({
+                    "Author": String("SunPixel像素画生成器"),
+                    "Name": String(os.path.basename(file_path).replace('.schem', '')),
+                    "Date": Long(int(time.time() * 1000)),
+                    "Description": String("Generated by SunPixel (自动修复)")
+                })
+            
+            fix_description = "添加了缺失的必要字段"
+        
+        # 保存修复后的文件
+        backup_path = file_path.replace('.schem', '_backup.schem')
+        os.rename(file_path, backup_path)
+        nbt_file.save(file_path, gzipped=True)
+        
+        print(f"✅ 文件修复完成: {fix_description}")
+        print(f"📁 原始文件已备份为: {backup_path}")
+        
+        return True, fix_description, backup_path
+        
+    except Exception as e:
+        print(f"❌ 修复过程中发生错误: {e}")
+        return False, f"修复失败: {str(e)}", None
+
+
+def ask_auto_verification():
+    while True:
+        choice = input("\n是否启用自动验证? (y/n, 回车默认为y): ").strip().lower()
+        
+        if not choice or choice == 'y' or choice == 'yes':
+            print("✅ 已启用自动验证")
+            return True
+        elif choice == 'n' or choice == 'no':
+            print("⚠️  已禁用自动验证")
+            return False
+        else:
+            print("❌ 请输入 y 或 N")
+
 # 主程序
 if __name__ == "__main__":
     try:
-        # 显示logo
+        # 显示彩色logo
         display_logo()
         
         # 显示最新公告
         display_announcement()
+        
+        # 询问是否启用自动验证
+        enable_verification = ask_auto_verification()
         
         # 获取用户输入
         input_image, output_schem, width, height, selected_blocks = get_user_input()
@@ -610,12 +926,56 @@ if __name__ == "__main__":
                 selected_names.append(f"{block}({chinese_name})")
             print(f"🎨 使用的方块类型: {', '.join(selected_names)}")
             print("="*50)
+            
+            # 如果启用了自动验证，进行文件验证和修复
+            if enable_verification:
+                # 验证文件
+                is_valid, message = verify_schem_file(output_schem)
+                
+                if not is_valid:
+                    print(f"\n⚠️  文件验证发现问题: {message}")
+                    
+                    # 询问用户是否要修复
+                    fix_choice = input("是否尝试自动修复? (y/n, 回车默认为y): ").strip().lower()
+                    if not fix_choice or fix_choice == 'y' or fix_choice == 'yes':
+                        fix_start_time = time.time()
+                        fix_success, fix_message, backup_path = fix_schem_file(output_schem, message)
+                        
+                        if fix_success:
+                            fix_elapsed = time.time() - fix_start_time
+                            print(f"\n✅ 自动验证并修复成功完成! 耗时: {fix_elapsed:.2f}秒")
+                            print("="*50)
+                            print(f"📐 生成结构尺寸: {schem_width} × {schem_height} 方块")
+                            print(f"🧱 总方块数量: {block_count} 个")
+                            print(f"💾 原输出文件: {backup_path}")
+                            print(f"💾 修复后文件: {os.path.abspath(output_schem)}")
+                            print(f"🔧 修复内容: {fix_message}")
+                            
+                            # 显示使用的方块类型中文名
+                            print(f"🎨 使用的方块类型: {', '.join(selected_names)}")
+                            print("="*50)
+                            
+                            # 验证修复后的文件
+                            print("\n🔍 验证修复后的文件...")
+                            is_valid_after_fix, final_message = verify_schem_file(output_schem)
+                            
+                            if is_valid_after_fix:
+                                print("✅ 修复后文件验证通过")
+                            else:
+                                print(f"❌ 修复后文件仍然存在问题: {final_message}")
+                        else:
+                            print(f"❌ 修复失败: {fix_message}")
+                    else:
+                        print("⚠️  用户选择不进行修复")
+                else:
+                    print("✅ 文件验证通过，无需修复")
+            
         else:
             print("\n❌ 转换失败!")
             
     except Exception as e:
         print(f"\n❌ 发生错误: {e}")
         import traceback
-        traceback.print_exc()  # 打印详细错误信息
+        traceback.print_exc()
     finally:
         input("\n按Enter键退出...")
