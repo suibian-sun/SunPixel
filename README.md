@@ -5,8 +5,9 @@ V-1.2.0
 # 安卓版本
  ![1000139893](https://github.com/user-attachments/assets/5b5951ee-c2ac-4c8b-9bf4-57abdf6a38af)
 
-# Web版本
-![1000139961](https://github.com/user-attachments/assets/3726e810-8916-4e04-8d25-9f5bdd26f98e)
+# Web版本［在线网页：SunPixel.520cti.shop］
+![1000140159](https://github.com/user-attachments/assets/21a4a2ad-759c-4546-a902-90c2c8bbe56a)
+
 
 
 
