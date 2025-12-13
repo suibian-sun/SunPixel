@@ -1,0 +1,9 @@
+{
+  "general": {
+    "language": "zh_CN",
+    "output_directory": "output"
+  },
+  "ui": {
+    "colored_output": true
+  }
+}

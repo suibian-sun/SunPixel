@@ -17,8 +17,7 @@
  #Go 版本［暂不可用］
 
    1. 安装依赖：go mod init SunPixel && go get github.com/MachineMC/NBT
-   2. 构建：go build -o SunPixelTool-Android-aarch64 SunPixelGo.go #可直接使用二进制文件版本，不需要进行编译
-   3. 运行：go .
+   2. 运行：go build .
    
  #Go 二进制文件版本［暂不可用］
    1. 运行：./SunPixelTool-Android-aarch64

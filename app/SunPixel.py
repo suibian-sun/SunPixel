@@ -1,6 +1,6 @@
 import numpy as np
-import png  # 使用pypng库处理PNG
-from PIL import Image  # 使用PIL处理JPG
+import png
+from PIL import Image
 import nbtlib
 from nbtlib.tag import Byte, Short, Int, Long, Float, Double, String, List, Compound
 import os
@@ -14,336 +14,157 @@ import urllib.error
 import re
 import sys
 import threading
+from io import BytesIO, StringIO, TextIOBase, IOBase
+from typing import Dict, List, Union
+from enum import Enum
 
-class ImageToSchem:
+# 创建必要的目录结构
+Path("Format").mkdir(exist_ok=True)
+
+class Color(Enum):
+    """终端颜色枚举"""
+    RESET = '\033[0m'
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    MAGENTA = '\033[95m'
+    CYAN = '\033[96m'
+    WHITE = '\033[97m'
+    BOLD = '\033[1m'
+    GRAY = '\033[90m'
+
+class OutputFormat(Enum):
+    """输出格式枚举"""
+    SCHEMATIC = "schem"
+    RUNAWAY = "json"
+    LITEMATICA = "litematic"
+
+class TypeCheckList(list):
+    """类型检查列表"""
     def __init__(self):
-        self.color_to_block = {}
-        self.block_palette = []
-        self.block_data = []
-        self.width = 0
-        self.height = 0
-        self.depth = 1
-        
-    def load_block_mappings(self, selected_blocks):
-        """从block目录加载选中的方块映射"""
-        self.color_to_block = {}
-        block_dir = Path("block")
-        
-        if not block_dir.exists():
-            print("❌ 错误: block目录不存在!")
-            return False
-            
-        for block_file in block_dir.glob("*.json"):
-            block_name = block_file.stem
-            if block_name in selected_blocks:
-                try:
-                    with open(block_file, 'r', encoding='utf-8') as f:
-                        # 读取文件内容并过滤注释行
-                        lines = f.readlines()
-                        json_lines = []
-                        for line in lines:
-                            # 跳过以#开头的注释行
-                            if not line.strip().startswith('#'):
-                                json_lines.append(line)
-                        
-                        # 解析JSON
-                        if json_lines:  # 确保有JSON内容
-                            block_data = json.loads(''.join(json_lines))
-                            
-                            # 修复：正确处理颜色键的格式
-                            processed_block_data = {}
-                            for color_key, block_info in block_data.items():
-                                # 确保颜色键是字符串格式
-                                if isinstance(color_key, str):
-                                    processed_block_data[color_key] = block_info
-                                else:
-                                    # 如果颜色键不是字符串，转换为字符串
-                                    processed_block_data[str(color_key)] = block_info
-                            
-                            self.color_to_block.update(processed_block_data)
-                            print(f"✅ 已加载: {block_name}")
-                        else:
-                            print(f"❌ 文件 {block_file} 中没有有效的JSON内容")
-                except Exception as e:
-                    print(f"❌ 加载 {block_file} 时出错: {e}")
-        
-        if not self.color_to_block:
-            print("❌ 错误: 没有加载任何方块映射!")
-            return False
-            
-        print(f"✅ 总共加载 {len(self.color_to_block)} 种颜色映射")
-        return True
-        
-    def color_distance(self, c1, c2):
-        """计算两个颜色之间的感知距离"""
-        r1, g1, b1 = c1
-        r2, g2, b2 = c2
-        r_mean = (r1 + r2) / 2
-        
-        r_diff = r1 - r2
-        g_diff = g1 - g2
-        b_diff = b1 - b2
-        
-        return math.sqrt(
-            (2 + r_mean/256) * (r_diff**2) +
-            4 * (g_diff**2) +
-            (2 + (255 - r_mean)/256) * (b_diff**2)
-        )
-        
-    def find_closest_color(self, color):
-        """找到最接近的颜色映射"""
-        r, g, b = color[:3]
-        closest_color = None
-        min_distance = float('inf')
-        
-        for target_color_str in self.color_to_block:
-            # 将字符串格式的颜色转换为元组
-            try:
-                # 处理 "(r, g, b)" 格式的字符串
-                if target_color_str.startswith('(') and target_color_str.endswith(')'):
-                    color_str = target_color_str[1:-1]  # 去掉括号
-                    color_values = [int(x.strip()) for x in color_str.split(',')]
-                    target_color = tuple(color_values[:3])  # 只取RGB三个值
-                else:
-                    # 如果是其他格式，尝试直接处理
-                    color_values = [int(x.strip()) for x in target_color_str.split(',')]
-                    target_color = tuple(color_values[:3])
-                
-                # 使用感知颜色距离算法
-                distance = self.color_distance((r, g, b), target_color)
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_color = target_color_str
-            except Exception as e:
-                # 如果颜色解析失败，跳过这个颜色
-                continue
-                
-        if closest_color:
-            block_info = self.color_to_block[closest_color]
-            # 确保返回的是 (block_name, block_data) 格式
-            if isinstance(block_info, list) and len(block_info) >= 2:
-                return block_info[0], block_info[1]
-            else:
-                # 如果格式不正确，返回默认值
-                return "minecraft:white_concrete", 0
-        else:
-            return "minecraft:white_concrete", 0
+        super().__init__()
+        self.checker = None
     
-    def load_image(self, image_path):
-        """加载图片，支持PNG和JPG格式"""
-        print("🖼️  正在加载图片...")
-        # 检查文件扩展名
-        ext = os.path.splitext(image_path)[1].lower()
-        
-        if ext == '.png':
-            # 使用pypng处理PNG
-            reader = png.Reader(filename=image_path)
-            width, height, pixels, metadata = reader.asDirect()
-            
-            # 将像素数据转换为numpy数组
-            image_data = []
-            for row in pixels:
-                image_data.append(row)
-            
-            # 根据通道数处理数据
-            if metadata['alpha']:
-                # RGBA格式，忽略alpha通道
-                self.pixels = np.array(image_data, dtype=np.uint8).reshape(height, width, 4)[:, :, :3]
-            else:
-                # RGB格式
-                self.pixels = np.array(image_data, dtype=np.uint8).reshape(height, width, 3)
-                
-            self.original_width = width
-            self.original_height = height
-            
-        elif ext in ('.jpg', '.jpeg'):
-            # 使用PIL处理JPG
-            img = Image.open(image_path)
-            img = img.convert('RGB')
-            self.original_width, self.original_height = img.size
-            
-            # 将图像转换为numpy数组
-            self.pixels = np.array(img)
-            
-        else:
-            raise ValueError(f"不支持的图片格式: {ext}")
-        
-        print(f"✅ 图片加载完成: {self.original_width} × {self.original_height} 像素")
-            
-    def calculate_best_ratio(self, target_width, target_height):
-        """计算最佳保持比例的尺寸"""
-        orig_ratio = self.original_width / self.original_height
-        target_ratio = target_width / target_height
-        
-        # 如果目标比例接近原始比例，直接返回
-        if abs(orig_ratio - target_ratio) < 0.05:
-            return target_width, target_height
-        
-        # 计算保持比例的最佳尺寸
-        if orig_ratio > target_ratio:
-            # 宽度是限制因素
-            best_width = target_width
-            best_height = int(target_width / orig_ratio)
-        else:
-            # 高度是限制因素
-            best_height = target_height
-            best_width = int(target_height * orig_ratio)
-            
-        return best_width, best_height
+    def setChecker(self, checker):
+        self.checker = checker
+        return self
     
-    def set_size(self, width, height):
-        """设置生成结构的尺寸"""
-        self.width = max(1, width)
-        self.height = max(1, height)
-        print(f"📐 设置生成尺寸: {self.width} × {self.height} 方块")
-            
-    def generate_schem(self):
-        """生成schem数据结构"""
-        print("🔨 正在生成schem数据结构...")
-        
-        # 初始化方块调色板
-        self.block_palette = list(set([block[0] for block in self.color_to_block.values()]))
-        print(f"🎨 初始化调色板: {len(self.block_palette)} 种方块")
-        
-        # 创建方块数据数组 (二维数组: height × width)
-        self.block_data = np.zeros((self.depth, self.height, self.width), dtype=int)
-        self.block_data_values = np.zeros((self.depth, self.height, self.width), dtype=int)
-        
-        # 计算缩放比例
-        scale_x = self.original_width / self.width
-        scale_y = self.original_height / self.height
-        
-        print("🔄 正在处理像素数据...")
-        total_pixels = self.width * self.height
-        processed_pixels = 0
-        
-        # 创建进度显示线程
-        progress_thread = ProgressDisplay(total_pixels, "处理像素")
-        progress_thread.start()
-        
-        # 填充方块数据
-        for y in range(self.height):
-            for x in range(self.width):
-                # 计算原始图片中对应的区域
-                src_x = int(x * scale_x)
-                src_y = int(y * scale_y)
-                
-                # 获取该区域的平均颜色
-                region = self.pixels[
-                    int(src_y):min(int((y+1)*scale_y), self.original_height),
-                    int(src_x):min(int((x+1)*scale_x), self.original_width)
-                ]
-                if region.size == 0:
-                    avg_color = (255, 255, 255)  # 默认白色
-                else:
-                    avg_color = tuple(np.mean(region, axis=(0, 1)).astype(int))
-                
-                block_name, block_data = self.find_closest_color(avg_color)
-                if block_name in self.block_palette:
-                    block_index = self.block_palette.index(block_name)
-                else:
-                    # 如果方块不在调色板中，使用第一个方块
-                    block_index = 0
-                
-                # 单层结构，只在z=0位置放置方块
-                self.block_data[0, y, x] = block_index
-                self.block_data_values[0, y, x] = block_data
-                
-                processed_pixels += 1
-                progress_thread.update(processed_pixels)
-        
-        # 停止进度显示
-        progress_thread.stop()
-        progress_thread.join()
-        
-        print("✅ schem数据结构生成完成")
-        
-    def save_schem(self, output_path):
-        """保存为Sponge格式的.schem文件"""
-        print("💾 正在保存schem文件...")
-        
-        # 确保输出文件后缀正确
-        if not output_path.lower().endswith('.schem'):
-            output_path += '.schem'
-        
-        # 创建NBT数据结构 - 去除元数据
-        schematic = Compound({
-            "Version": Int(2),
-            "DataVersion": Int(3100),  
-            "Width": Short(self.width),
-            "Height": Short(self.depth),
-            "Length": Short(self.height),
-            "Offset": List[Int]([Int(0), Int(0), Int(0)]),
-            
-            # 调色板
-            "Palette": Compound({
-                block_name: Int(idx) 
-                for idx, block_name in enumerate(self.block_palette)
-            }),
-            
-            # 方块数据
-            "BlockData": nbtlib.ByteArray(
-                self.block_data.flatten(order='C').tolist()
-            ),
-            
-            # 方块实体数据
-            "BlockEntities": List[Compound]([])
-        })
-        
-        # 保存为.schem文件
-        nbt_file = nbtlib.File(schematic)
-        nbt_file.save(output_path, gzipped=True)
-        
-        print(f"✅ schem文件保存完成: {output_path}")
-        # 返回转换统计信息
-        return self.width, self.height, self.width * self.height
-        
-    def convert(self, input_image, output_schem, width=None, height=None, selected_blocks=None):
-        """转换入口函数"""
-        if selected_blocks is None:
-            selected_blocks = []
-            
-        print("🚀 开始转换流程...")
-        # 加载方块映射
-        if not self.load_block_mappings(selected_blocks):
-            return None
-            
-        try:
-            self.load_image(input_image)
-            
-            # 如果没有指定尺寸，则使用原始图片尺寸
-            if width is None or height is None:
-                self.set_size(self.original_width, self.original_height)
-            else:
-                # 计算并建议最佳比例
-                best_width, best_height = self.calculate_best_ratio(width, height)
-                
-                # 如果建议的尺寸与用户输入不同，询问用户
-                if best_width != width or best_height != height:
-                    print(f"\n⚠️  建议使用保持比例的最佳尺寸: {best_width}x{best_height} (原图比例 {self.original_width}:{self.original_height})")
-                    choice = input("是否使用建议尺寸? (y/n): ").strip().lower()
-                    if choice == 'y':
-                        self.set_size(best_width, best_height)
-                    else:
-                        self.set_size(width, height)
-                else:
-                    self.set_size(width, height)
-                
-            self.generate_schem()
-            return self.save_schem(output_schem)
-        except Exception as e:
-            print(f"❌ 转换过程中发生错误: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
+    def append(self, obj):
+        if self.checker and not isinstance(obj, self.checker):
+            raise Exception(f"类型错误: 期望 {self.checker}, 得到 {type(obj)}")
+        super().append(obj)
+    
+    def extend(self, iterable):
+        for obj in iterable:
+            self.append(obj)
 
+class RunAway:
+    """RunAway 官方结构文件对象"""
+    def __init__(self):
+        self.blocks: List[Dict] = TypeCheckList().setChecker(dict)
+
+    def __setattr__(self, name, value):
+        if not hasattr(self, name):
+            super().__setattr__(name, value)
+        elif isinstance(value, type(getattr(self, name))):
+            super().__setattr__(name, value)
+        else:
+            raise Exception(f"无法修改 {name} 属性")
+
+    def __delattr__(self, name):
+        raise Exception("无法删除任何属性")
+
+    def get_volume(self):
+        if not self.blocks:
+            return [0, 0, 0], [0, 0, 0]
+            
+        origin_min, origin_max = [0, 0, 0], [0, 0, 0]
+        
+        def pos_iter():
+            for i in self.blocks:
+                yield (i["x"], i["y"], i["z"])
+        
+        first = next(pos_iter())
+        origin_min = list(first)
+        origin_max = list(first)
+        
+        for pos in pos_iter():
+            for i in range(3):
+                origin_min[i] = min(origin_min[i], pos[i])
+                origin_max[i] = max(origin_max[i], pos[i])
+
+        return origin_min, origin_max
+
+    def error_check(self):
+        for block in self.blocks:
+            if not isinstance(block.get("name", None), str):
+                raise Exception("方块数据缺少或存在错误的 name 参数")
+            if not isinstance(block.get("aux", 0), int):
+                raise Exception("方块数据存在错误的 aux 参数")
+            if not isinstance(block.get("x", None), int):
+                raise Exception("方块数据存在错误的 x 参数")
+            if not isinstance(block.get("y", None), int):
+                raise Exception("方块数据存在错误的 y 参数")
+            if not isinstance(block.get("z", None), int):
+                raise Exception("方块数据存在错误的 z 参数")
+
+            block["aux"] = block.get("aux", 0)
+
+    @classmethod
+    def from_buffer(cls, buffer: Union[str, IOBase, BytesIO, StringIO]):
+        if isinstance(buffer, str):
+            _file = open(buffer, "rb")
+        elif isinstance(buffer, bytes):
+            _file = BytesIO(buffer)
+        else:
+            _file = buffer
+        
+        Json1: List[Dict] = json.load(fp=_file)
+
+        StructureObject = cls()
+        StructureObject.blocks.extend(Json1)
+
+        return StructureObject
+
+    def save_as(self, buffer: Union[str, IOBase, StringIO]):
+        self.error_check()
+
+        Json1: List[Dict] = list(self.blocks)
+
+        if isinstance(buffer, str):
+            base_path = os.path.realpath(os.path.join(buffer, os.pardir))
+            os.makedirs(base_path, exist_ok=True)
+            _file = open(buffer, "w+", encoding="utf-8")
+        else:
+            _file = buffer
+
+        if not isinstance(_file, TextIOBase):
+            raise TypeError("buffer 参数需要文本缓冲区类型")
+        json.dump(Json1, _file, separators=(',', ':'))
+
+    @classmethod
+    def is_this_file(cls, data, data_type: str):
+        if data_type != "json":
+            return False
+        Json1 = data
+
+        if not isinstance(Json1, list):
+            return False
+        if any(not isinstance(i, dict) for i in Json1[:10]):
+            return False
+        if isinstance(Json1, list) and len(Json1) and isinstance(Json1[0], dict) and \
+                "name" in Json1[0] and isinstance(Json1[0].get("x", None), int):
+            return True
+        return False
 
 class ProgressDisplay(threading.Thread):
     """实时进度显示线程"""
-    def __init__(self, total, description="处理"):
+    def __init__(self, total, description, config):
         super().__init__()
         self.total = total
         self.description = description
+        self.config = config
         self.current = 0
         self.running = True
         self.daemon = True
@@ -358,27 +179,101 @@ class ProgressDisplay(threading.Thread):
         
     def run(self):
         """运行进度显示"""
+        use_color = self.config.getboolean('ui', 'colored_output', True)
+        
         while self.running and self.current < self.total:
             progress = (self.current / self.total) * 100
             bar_length = 30
             filled_length = int(bar_length * self.current // self.total)
-            bar = '█' * filled_length + '░' * (bar_length - filled_length)
+            
+            if use_color:
+                bar = f'{Color.GREEN.value}█{Color.RESET.value}' * filled_length + f'{Color.GRAY.value}░{Color.RESET.value}' * (bar_length - filled_length)
+            else:
+                bar = '█' * filled_length + '░' * (bar_length - filled_length)
             
             sys.stdout.write(f'\r📊 {self.description}: [{bar}] {self.current}/{self.total} ({progress:.1f}%)')
             sys.stdout.flush()
             time.sleep(0.1)
         
-        # 显示最终进度
         if self.current >= self.total:
             progress = 100.0
-            bar = '█' * bar_length
+            bar_length = 30
+            if use_color:
+                bar = f'{Color.GREEN.value}█{Color.RESET.value}' * bar_length
+            else:
+                bar = '█' * bar_length
             sys.stdout.write(f'\r📊 {self.description}: [{bar}] {self.current}/{self.total} ({progress:.1f}%) ✅\n')
             sys.stdout.flush()
 
+class Config:
+    """JSON配置管理器"""
+    def __init__(self):
+        self.config_path = Path("config.json")
+        self.config_data = {}
+        self.load()
+        
+    def load(self):
+        """加载配置文件"""
+        if self.config_path.exists():
+            try:
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    self.config_data = json.load(f)
+            except json.JSONDecodeError:
+                print(f"⚠️  配置文件损坏，使用默认配置")
+                self.create_default()
+        else:
+            self.create_default()
+            
+    def create_default(self):
+        """创建默认配置"""
+        self.config_data = {
+            "general": {
+                "language": "zh_CN",  # 程序语言，目前支持 zh_CN
+                "output_directory": "output"  # 输出文件目录
+            },
+            "ui": {
+                "colored_output": True  # 是否启用彩色控制台输出
+            }
+        }
+        self.save()
+        
+    def save(self):
+        """保存配置文件"""
+        with open(self.config_path, 'w', encoding='utf-8') as f:
+            json.dump(self.config_data, f, indent=2, ensure_ascii=False)
+            
+    def get(self, section, key, fallback=None):
+        """获取配置值"""
+        try:
+            return self.config_data.get(section, {}).get(key, fallback)
+        except:
+            return fallback
+            
+    def getboolean(self, section, key, fallback=False):
+        """获取布尔配置值"""
+        try:
+            value = self.get(section, key, fallback)
+            if isinstance(value, bool):
+                return value
+            elif isinstance(value, str):
+                return value.lower() in ['true', 'yes', '1', 'y']
+            else:
+                return bool(value)
+        except:
+            return fallback
+            
+    def set(self, section, key, value):
+        """设置配置值"""
+        if section not in self.config_data:
+            self.config_data[section] = {}
+        self.config_data[section][key] = value
+        self.save()
 
-def get_gradient_colors(num_colors):
+def get_gradient_colors(num_colors, use_color=True):
     """生成渐变颜色序列"""
-    # 定义12种渐变颜色（从蓝色到紫色到粉色）
+    if not use_color:
+        return [''] * num_colors
+        
     gradient_colors = [
         '\033[38;5;27m',   # 深蓝
         '\033[38;5;33m',   # 蓝色
@@ -396,11 +291,9 @@ def get_gradient_colors(num_colors):
         '\033[38;5;219m',  # 浅粉
     ]
     
-    # 根据需要的颜色数量生成渐变序列
     if num_colors <= len(gradient_colors):
         return gradient_colors[:num_colors]
     
-    # 如果需要更多颜色，在现有颜色间插值
     result = []
     for i in range(num_colors):
         pos = i / (num_colors - 1) * (len(gradient_colors) - 1)
@@ -409,13 +302,19 @@ def get_gradient_colors(num_colors):
     
     return result
 
+def colored_text(text, color, use_color=True):
+    """返回带颜色的文本，根据配置决定是否添加颜色"""
+    if use_color and color:
+        return f"{color.value}{text}{Color.RESET.value}"
+    return text
 
-def display_logo():
+def display_logo(config):
     """显示渐变颜色程序logo"""
-    # 定义logo的每一行
+    use_color = config.getboolean('ui', 'colored_output', True)
+    
     logo_lines = [
         "╔═════════════════════════════════════════════╗",
-        "║  ███████╗██╗   ██╗███╗   ██║                ║",
+        "║  ███████╗██╗   ██║███╗   ██║                ║",
         "║  ██╔════╝██║   ██║████╗  ██║                ║",
         "║  ███████╗██║   ██║██╔██╗ ██║                ║",
         "║  ╚════██║██║   ██║██║╚██╗██║                ║",
@@ -430,16 +329,17 @@ def display_logo():
         "╚═════════════════════════════════════════════╝"
     ]
     
-    # 生成渐变颜色
-    gradient = get_gradient_colors(len(logo_lines))
-    reset_color = '\033[0m'
+    if use_color:
+        gradient = get_gradient_colors(len(logo_lines), use_color)
+        reset_color = Color.RESET.value
+    else:
+        gradient = [''] * len(logo_lines)
+        reset_color = ''
     
-    # 打印渐变logo
     print()
     for i, line in enumerate(logo_lines):
         print(f"{gradient[i]}{line}{reset_color}")
     
-    # 打印开源信息（使用渐变颜色）
     info_lines = [
         "┌───────────────────────────────────────────┐",
         "│         Open source - SunPixel            │",
@@ -448,12 +348,15 @@ def display_logo():
         "Authors: suibian-sun"
     ]
     
-    info_gradient = get_gradient_colors(len(info_lines))
+    if use_color:
+        info_gradient = get_gradient_colors(len(info_lines), use_color)
+    else:
+        info_gradient = [''] * len(info_lines)
+    
     print()
     for i, line in enumerate(info_lines):
         print(f"{info_gradient[i]}{line}{reset_color}")
     print()
-
 
 def extract_date_from_content(content):
     date_pattern = r'\b(\d{4}-\d{1,2}-\d{1,2})\b'
@@ -464,7 +367,6 @@ def extract_date_from_content(content):
         
     return datetime.datetime.now().strftime("%Y-%m-%d")
 
-
 def get_latest_announcement():
     announcement_url = "https://raw.githubusercontent.com/suibian-sun/SunPixel/refs/heads/main/app/Changelog/new.md"
     
@@ -472,7 +374,6 @@ def get_latest_announcement():
         with urllib.request.urlopen(announcement_url, timeout=10) as response:
             content = response.read().decode('utf-8').strip()
         
-        # 从内容中提取日期
         date_str = extract_date_from_content(content)
         return date_str, content
         
@@ -482,7 +383,6 @@ def get_latest_announcement():
     except Exception as e:
         print(f"⚠️  获取公告时出错: {e}")
         return None
-
 
 def format_announcement_content(content):
     """格式化公告内容，在标题和内容之间添加空行"""
@@ -496,55 +396,43 @@ def format_announcement_content(content):
     
     return '\n'.join(formatted_lines)
 
-
 def format_announcement_box(date_str, content):
     """格式化公告显示框，自动调整边框宽度"""
     formatted_content = format_announcement_content(content)
     lines = formatted_content.split('\n')
     max_line_length = max(len(line) for line in lines if line.strip())
     
-    # 计算边框宽度（最长行长度 + 4个字符的边距）
-    box_width = max(60, max_line_length + 4)  # 最小宽度为60
+    box_width = max(60, max_line_length + 4)
     
-    # 构建边框
     top_border = "╔" + "═" * (box_width - 2) + "╗"
     middle_border = "╠" + "═" * (box_width - 2) + "╣"
     bottom_border = "╚" + "═" * (box_width - 2) + "╝"
     
-    # 构建格式化内容
     formatted_lines = []
     
-    # 添加标题行
     title_line = f"║ 📅 发布日期: {date_str}"
     formatted_lines.append(title_line.ljust(box_width - 1) + "║")
-    
-    # 添加中间边框
     formatted_lines.append(middle_border)
     
-    # 添加内容行
     for line in lines:
-        if line.strip():  # 只显示非空行
-            # 处理长文本换行
+        if line.strip():
             while len(line) > box_width - 4:
                 segment = line[:box_width - 4]
                 formatted_line = f"║ {segment}"
                 formatted_lines.append(formatted_line.ljust(box_width - 1) + "║")
                 line = line[box_width - 4:]
             
-            if line.strip():  # 确保行不为空
+            if line.strip():
                 formatted_line = f"║ {line}"
                 formatted_lines.append(formatted_line.ljust(box_width - 1) + "║")
         else:
-            # 空行也保留，用于间距
             formatted_lines.append(f"║{' ' * (box_width - 2)}║")
     
-    # 组合所有部分
     formatted_content = [top_border] + formatted_lines + [bottom_border]
     
     return formatted_content
 
-
-def display_announcement():
+def display_announcement(config):
     """显示最新公告"""
     announcement = get_latest_announcement()
     
@@ -552,12 +440,11 @@ def display_announcement():
         date_str, content = announcement
         formatted_announcement = format_announcement_box(date_str, content)
         
-        print("\n📢 最新公告")
+        print(f"\n📢 最新公告")
         for line in formatted_announcement:
             print(line)
     else:
-        print("\n📢 暂无公告或无法获取公告")
-
+        print(f"\n📢 暂无公告或无法获取公告")
 
 def get_block_display_name(block_file):
     """从JSON文件的第一行注释中获取方块类型的中文名称"""
@@ -569,7 +456,6 @@ def get_block_display_name(block_file):
     except:
         pass
     return block_file.stem 
-
 
 def get_available_blocks():
     """获取可用的方块类型及其显示名称"""
@@ -585,36 +471,44 @@ def get_available_blocks():
     
     return blocks_info
 
-
-def select_blocks():
+def select_blocks(config):
     """让用户选择要使用的方块类型"""
     blocks_info = get_available_blocks()
     available_blocks = list(blocks_info.keys())
     
     if not available_blocks:
-        print("❌ 没有找到任何方块映射文件!")
+        print(f"❌ 没有找到任何方块映射文件!")
         return []
         
-    print("\n📦 可用的方块类型:")
+    print(f"\n📦 请选择要使用的方块类型:")
     print("-" * 50)
+    
+    use_color = config.getboolean('ui', 'colored_output', True)
     
     for i, block in enumerate(available_blocks, 1):
         chinese_name = blocks_info[block]
-        print(f"  {i}. {block} ({chinese_name})")
+        if use_color:
+            print(f"  {Color.CYAN.value}{i}. {block}{Color.RESET.value} ({chinese_name})")
+        else:
+            print(f"  {i}. {block} ({chinese_name})")
     
-    print(f"  {len(available_blocks) + 1}. 全选")
-    print(f"  {len(available_blocks) + 2}. 取消全选")
+    if use_color:
+        print(f"  {Color.GREEN.value}{len(available_blocks) + 1}. 全选{Color.RESET.value}")
+        print(f"  {Color.YELLOW.value}{len(available_blocks) + 2}. 取消全选{Color.RESET.value}")
+    else:
+        print(f"  {len(available_blocks) + 1}. 全选")
+        print(f"  {len(available_blocks) + 2}. 取消全选")
     print("-" * 50)
     
     selected = set()
     
     while True:
-        choice = input("\n请选择要使用的方块类型(输入编号，多个用逗号分隔，回车确认): ").strip()
+        choice = input(f"\n📦 请选择方块类型(输入编号，多个用逗号分隔，回车确认): ").strip()
         
         if not choice:
             if not selected:
-                print("⚠️  未选择任何方块，将使用默认方块")
-                return ["wool", "concrete"]  # 默认选择羊毛和混凝土
+                print(f"⚠️  未选择任何方块，将使用默认方块")
+                return ["wool", "concrete"]
             break
             
         try:
@@ -625,14 +519,18 @@ def select_blocks():
                     if 1 <= idx <= len(available_blocks):
                         selected.add(available_blocks[idx-1])
                     elif idx == len(available_blocks) + 1:
-                        # 全选
                         selected = set(available_blocks)
-                        print("✅ 已选择所有方块类型")
+                        if use_color:
+                            print(f"{Color.GREEN.value}✅ 已全选所有方块{Color.RESET.value}")
+                        else:
+                            print(f"✅ 已全选所有方块")
                         break
                     elif idx == len(available_blocks) + 2:
-                        # 取消全选
                         selected.clear()
-                        print("✅ 已取消所有选择")
+                        if use_color:
+                            print(f"{Color.YELLOW.value}✅ 已取消全选{Color.RESET.value}")
+                        else:
+                            print(f"✅ 已取消全选")
                         break
                     else:
                         print(f"❌ 无效的选择: {c}")
@@ -643,29 +541,65 @@ def select_blocks():
                         print(f"❌ 无效的方块类型: {c}")
             
             if selected:
-                # 显示选中的方块的中文名称
                 selected_names = []
                 for block in sorted(selected):
                     chinese_name = blocks_info[block]
-                    selected_names.append(f"{block}({chinese_name})")
-                print(f"✅ 已选择: {', '.join(selected_names)}")
+                    if use_color:
+                        selected_names.append(f"{Color.GREEN.value}{block}{Color.RESET.value}({chinese_name})")
+                    else:
+                        selected_names.append(f"{block}({chinese_name})")
+                if use_color:
+                    print(f"{Color.GREEN.value}✅ 已选择: {', '.join(selected_names)}{Color.RESET.value}")
+                else:
+                    print(f"✅ 已选择: {', '.join(selected_names)}")
                 break
                 
         except ValueError:
-            print("❌ 请输入有效的数字")
+            print(f"❌ 请输入有效的数字")
     
     return list(selected)
 
-
-def get_user_input():
+def get_user_input(config):
     """获取用户输入"""
-    print("\n" + "="*50)
+    use_color = config.getboolean('ui', 'colored_output', True)
+    
+    print(f"\n{'='*50}")
+    
+    # 选择输出格式
+    print(f"\n📁 请选择输出文件格式:")
+    if use_color:
+        print(f"{Color.GREEN.value}1. .schem (Schematic格式){Color.RESET.value}")
+        print(f"{Color.BLUE.value}2. .json (RunAway格式){Color.RESET.value}")
+        print(f"{Color.MAGENTA.value}3. .litematic (Litematica格式){Color.RESET.value}")
+    else:
+        print("1. .schem (Schematic格式)")
+        print("2. .json (RunAway格式)")
+        print("3. .litematic (Litematica格式)")
+    
+    while True:
+        if use_color:
+            format_choice = input(f"{Color.CYAN.value}请选择格式 (1-3):{Color.RESET.value} ").strip()
+        else:
+            format_choice = input("请选择格式 (1-3): ").strip()
+        if format_choice in ['1', '2', '3']:
+            if format_choice == '1':
+                output_format = OutputFormat.SCHEMATIC
+            elif format_choice == '2':
+                output_format = OutputFormat.RUNAWAY
+            else:
+                output_format = OutputFormat.LITEMATICA
+            break
+        else:
+            print(f"❌ 请选择 1、2 或 3")
     
     # 获取输入文件路径
     while True:
-        input_path = input("\n📁 请输入图片路径 (PNG或JPG): ").strip()
+        if use_color:
+            input_path = input(f"\n{Color.CYAN.value}🖼️  请输入图片路径 (PNG或JPG):{Color.RESET.value} ").strip()
+        else:
+            input_path = input(f"\n🖼️  请输入图片路径 (PNG或JPG): ").strip()
         if not input_path:
-            print("❌ 路径不能为空")
+            print(f"❌ 路径不能为空")
             continue
             
         if not os.path.exists(input_path):
@@ -674,7 +608,7 @@ def get_user_input():
             
         ext = os.path.splitext(input_path)[1].lower()
         if ext not in ('.png', '.jpg', '.jpeg'):
-            print("❌ 错误: 只支持PNG和JPG格式的图片")
+            print(f"❌ 错误: 只支持PNG和JPG格式的图片")
             continue
             
         try:
@@ -687,32 +621,38 @@ def get_user_input():
                 width, height = img.size
                 
             if width == 0 or height == 0:
-                print("❌ 错误: 图片尺寸无效")
+                print(f"❌ 请输入有效的尺寸格式，例如 64x64")
                 continue
             break
         except Exception as e:
             print(f"❌ 无法打开文件: {e}，请重新输入")
     
     # 选择方块类型
-    selected_blocks = select_blocks()
+    selected_blocks = select_blocks(config)
     
     # 设置输出目录和文件名
-    output_dir = Path("output")
+    output_dir = Path(config.get('general', 'output_directory', 'output'))
     output_dir.mkdir(exist_ok=True)
     
-    default_name = Path(input_path).stem + ".schem"
-    output_path = input(f"\n💾 输出文件名 (回车使用 '{default_name}'): ").strip()
+    default_name = Path(input_path).stem + f".{output_format.value}"
+    if use_color:
+        output_path = input(f"\n{Color.CYAN.value}💾 输出文件名 (回车使用 '{default_name}'):{Color.RESET.value} ").strip()
+    else:
+        output_path = input(f"\n💾 输出文件名 (回车使用 '{default_name}'): ").strip()
     
     if not output_path:
         output_path = default_name
-    elif not output_path.lower().endswith('.schem'):
-        output_path += '.schem'
+    elif not output_path.lower().endswith(f'.{output_format.value}'):
+        output_path += f'.{output_format.value}'
     
     output_file = output_dir / output_path
     
     # 获取生成尺寸
     while True:
-        size_input = input("\n📐 请输入生成尺寸(格式: 宽x高，例如 64x64，留空则使用原图尺寸): ").strip()
+        if use_color:
+            size_input = input(f"\n{Color.CYAN.value}📐 请输入生成尺寸(格式: 宽x高，例如 64x64，留空则使用原图尺寸):{Color.RESET.value} ").strip()
+        else:
+            size_input = input(f"\n📐 请输入生成尺寸(格式: 宽x高，例如 64x64，留空则使用原图尺寸): ").strip()
         if not size_input:
             width, height = None, None
             break
@@ -723,28 +663,27 @@ def get_user_input():
             elif '×' in size_input:
                 width, height = map(int, size_input.lower().split('×'))
             else:
-                print("❌ 请输入有效的尺寸格式，例如 64x64")
+                print(f"❌ 请输入有效的尺寸格式，例如 64x64")
                 continue
                 
             if width <= 0 or height <= 0:
-                print("❌ 尺寸必须大于0")
+                print(f"❌ 尺寸必须大于0")
                 continue
             break
         except ValueError:
-            print("❌ 请输入有效的尺寸格式，例如 64x64")
+            print(f"❌ 请输入有效的尺寸格式，例如 64x64")
     
-    return input_path, str(output_file), width, height, selected_blocks
+    return input_path, str(output_file), width, height, selected_blocks, output_format
 
-
-def verify_schem_file(file_path):
+def verify_schem_file(file_path, config):
     """验证schem文件内容并修复可能的错误"""
-    print("\n🔍 正在验证生成的schem文件...")
+    use_color = config.getboolean('ui', 'colored_output', True)
+    
+    print(f"\n🔍 正在验证生成的schem文件...")
     
     try:
-        # 加载schem文件
         nbt_file = nbtlib.load(file_path, gzipped=True)
         
-        # 检查必要的字段
         required_fields = ["Version", "DataVersion", "Width", "Height", "Length", "Palette", "BlockData"]
         missing_fields = [field for field in required_fields if field not in nbt_file]
         
@@ -752,22 +691,19 @@ def verify_schem_file(file_path):
             print(f"❌ 文件缺少必要字段: {', '.join(missing_fields)}")
             return False, "文件结构不完整"
         
-        # 验证尺寸数据
         width = nbt_file["Width"]
         height = nbt_file["Height"]
         length = nbt_file["Length"]
         
         if width <= 0 or height <= 0 or length <= 0:
-            print("❌ 文件尺寸数据无效")
+            print(f"❌ 文件尺寸数据无效")
             return False, "尺寸数据无效"
         
-        # 验证调色板
         palette = nbt_file["Palette"]
         if not palette:
-            print("❌ 调色板为空")
+            print(f"❌ 调色板为空")
             return False, "调色板为空"
         
-        # 验证方块数据
         block_data = nbt_file["BlockData"]
         expected_size = width * height * length
         
@@ -775,7 +711,6 @@ def verify_schem_file(file_path):
             print(f"❌ 方块数据长度不匹配: 期望 {expected_size}, 实际 {len(block_data)}")
             return False, "方块数据长度不匹配"
         
-        # 检查方块数据中的值是否在调色板范围内
         palette_size = len(palette)
         out_of_range_blocks = [block_id for block_id in block_data if block_id >= palette_size]
         
@@ -783,40 +718,42 @@ def verify_schem_file(file_path):
             print(f"❌ 发现 {len(out_of_range_blocks)} 个超出调色板范围的方块ID")
             return False, "方块ID超出调色板范围"
         
-        print("✅ schem文件验证通过")
+        if use_color:
+            print(f"{Color.GREEN.value}✅ schem文件验证通过{Color.RESET.value}")
+        else:
+            print(f"✅ schem文件验证通过")
         return True, "文件验证通过"
         
     except Exception as e:
         print(f"❌ 验证过程中发生错误: {e}")
         return False, f"验证错误: {str(e)}"
 
-
-def fix_schem_file(file_path, issue):
+def fix_schem_file(file_path, issue, config):
     """根据问题修复schem文件"""
-    print(f"\n🔧 正在尝试修复schem文件: {issue}")
+    use_color = config.getboolean('ui', 'colored_output', True)
+    
+    if use_color:
+        print(f"\n{Color.YELLOW.value}🔧 正在尝试修复schem文件: {issue}{Color.RESET.value}")
+    else:
+        print(f"\n🔧 正在尝试修复schem文件: {issue}")
     
     try:
-        # 加载原始文件
         nbt_file = nbtlib.load(file_path, gzipped=True)
         
         fix_description = ""
         
-        # 根据具体问题应用修复
         if "方块数据长度不匹配" in issue:
-            # 重新生成正确的方块数据
             width = nbt_file["Width"]
             height = nbt_file["Height"]
             length = nbt_file["Length"]
             expected_size = width * height * length
             
-            # 创建新的方块数据（全部设为0）
             new_block_data = nbtlib.ByteArray([0] * expected_size)
             nbt_file["BlockData"] = new_block_data
             
             fix_description = f"重置方块数据为默认值，长度: {expected_size}"
             
         elif "方块ID超出调色板范围" in issue:
-            # 将超出范围的方块ID设为0
             palette_size = len(nbt_file["Palette"])
             block_data = nbt_file["BlockData"]
             
@@ -829,7 +766,6 @@ def fix_schem_file(file_path, issue):
             fix_description = f"修复了 {fixed_blocks} 个超出调色板范围的方块ID"
             
         else:
-            # 通用修复：确保所有必要字段都存在
             if "Version" not in nbt_file:
                 nbt_file["Version"] = Int(2)
             if "DataVersion" not in nbt_file:
@@ -837,13 +773,16 @@ def fix_schem_file(file_path, issue):
             
             fix_description = "添加了缺失的必要字段"
         
-        # 保存修复后的文件
         backup_path = file_path.replace('.schem', '_backup.schem')
         os.rename(file_path, backup_path)
         nbt_file.save(file_path, gzipped=True)
         
-        print(f"✅ 文件修复完成: {fix_description}")
-        print(f"📁 原始文件已备份为: {backup_path}")
+        if use_color:
+            print(f"{Color.GREEN.value}✅ 文件修复完成: {fix_description}{Color.RESET.value}")
+            print(f"{Color.CYAN.value}📁 原始文件已备份为: {backup_path}{Color.RESET.value}")
+        else:
+            print(f"✅ 文件修复完成: {fix_description}")
+            print(f"📁 原始文件已备份为: {backup_path}")
         
         return True, fix_description, backup_path
         
@@ -851,19 +790,29 @@ def fix_schem_file(file_path, issue):
         print(f"❌ 修复过程中发生错误: {e}")
         return False, f"修复失败: {str(e)}", None
 
-
-def ask_auto_verification():
+def ask_auto_verification(config):
+    use_color = config.getboolean('ui', 'colored_output', True)
+    
     while True:
-        choice = input("\n是否启用自动验证? (y/n, 回车默认为y): ").strip().lower()
+        if use_color:
+            choice = input(f"\n{Color.CYAN.value}🔍 是否启用自动验证? (y/n, 回车默认为y):{Color.RESET.value} ").strip().lower()
+        else:
+            choice = input(f"\n🔍 是否启用自动验证? (y/n, 回车默认为y): ").strip().lower()
         
         if not choice or choice == 'y' or choice == 'yes':
-            print("✅ 已启用自动验证")
+            if use_color:
+                print(f"{Color.GREEN.value}✅ 已启用自动验证{Color.RESET.value}")
+            else:
+                print("✅ 已启用自动验证")
             return True
         elif choice == 'n' or choice == 'no':
-            print("⚠️  已禁用自动验证")
+            if use_color:
+                print(f"{Color.YELLOW.value}⚠️  已禁用自动验证{Color.RESET.value}")
+            else:
+                print("⚠️  已禁用自动验证")
             return False
         else:
-            print("❌ 请输入 y 或 N")
+            print(f"❌ 请输入 y 或 n")
 
 def create_default_block_files():
     """创建默认的方块映射文件"""
@@ -908,102 +857,284 @@ def create_default_block_files():
         f.write("# 混凝土方块\n")
         json.dump(concrete_data, f, indent=2, ensure_ascii=False)
     
-    print("✅ 已创建默认方块映射文件")
+    print(f"✅ 已创建默认方块映射文件")
 
-# 主程序
-if __name__ == "__main__":
+def load_converter_module(converter_name):
+    """动态加载转换器模块"""
+    format_dir = Path("Format")
+    module_file = format_dir / f"{converter_name}.py"
+    
+    if not module_file.exists():
+        print(f"❌ 找不到转换器模块: {module_file}")
+        return None
+    
+    # 动态导入模块
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(converter_name, str(module_file))
+    module = importlib.util.module_from_spec(spec)
+    
     try:
+        spec.loader.exec_module(module)
+        return module
+    except Exception as e:
+        print(f"❌ 加载转换器模块失败: {e}")
+        return None
+
+def show_settings_menu(config):
+    """显示设置菜单"""
+    use_color = config.getboolean('ui', 'colored_output', True)
+    
+    print("\n" + "="*50)
+    if use_color:
+        print(f"{Color.CYAN.value}⚙️  SunPixel 设置菜单{Color.RESET.value}")
+    else:
+        print("⚙️  SunPixel 设置菜单")
+    print("="*50)
+    
+    while True:
+        print(f"\n1. 查看当前配置")
+        print(f"2. 修改输出目录")
+        print(f"3. 切换控制台颜色 (当前: {'启用' if use_color else '禁用'})")
+        print(f"4. 修改语言设置 (当前: {config.get('general', 'language', 'zh_CN')})")
+        print(f"5. 重置为默认配置")
+        print(f"6. 保存并退出")
+        print(f"7. 不保存退出")
+        print("-"*30)
+        
+        choice = input("请选择操作 (1-7): ").strip()
+        
+        if choice == "1":
+            print(f"\n📋 当前配置:")
+            print(f"   输出目录: {config.get('general', 'output_directory', 'output')}")
+            print(f"   控制台颜色: {'启用' if use_color else '禁用'}")
+            print(f"   语言设置: {config.get('general', 'language', 'zh_CN')}")
+            
+        elif choice == "2":
+            new_dir = input("请输入新的输出目录路径: ").strip()
+            if new_dir:
+                config.set('general', 'output_directory', new_dir)
+                print(f"✅ 输出目录已更新为: {new_dir}")
+                
+        elif choice == "3":
+            current = config.getboolean('ui', 'colored_output', True)
+            new_value = not current
+            config.set('ui', 'colored_output', new_value)
+            use_color = new_value
+            print(f"✅ 控制台颜色已{'启用' if new_value else '禁用'}")
+            
+        elif choice == "4":
+            print(f"\n🗣️  选择语言:")
+            print(f"1. 中文 (zh_CN)")
+            # 可以在这里添加更多语言选项
+            lang_choice = input("请选择语言 (1): ").strip()
+            if lang_choice == "1":
+                config.set('general', 'language', 'zh_CN')
+                print("✅ 语言已设置为中文")
+            else:
+                print("⚠️  保持当前语言设置")
+                
+        elif choice == "5":
+            confirm = input("⚠️  确定要重置为默认配置吗? (y/n): ").strip().lower()
+            if confirm == 'y' or confirm == 'yes':
+                config.create_default()
+                config.load()
+                use_color = config.getboolean('ui', 'colored_output', True)
+                print("✅ 配置已重置为默认值")
+                
+        elif choice == "6":
+            config.save()
+            print("✅ 配置已保存")
+            print("👋 返回主程序...")
+            break
+            
+        elif choice == "7":
+            config.load()  # 重新加载配置，放弃更改
+            print("⚠️  更改未保存")
+            print("👋 返回主程序...")
+            break
+            
+        else:
+            print("❌ 无效的选择，请重新输入")
+
+def main():
+    """主程序入口"""
+    # 检查命令行参数
+    if '--set' in sys.argv:
+        # 进入设置模式
+        config = Config()
+        show_settings_menu(config)
+        return
+    
+    try:
+        # 初始化配置
+        config = Config()
+        
         # 显示彩色logo
-        display_logo()
+        display_logo(config)
         
         # 显示最新公告
-        display_announcement()
+        display_announcement(config)
         
         # 询问是否启用自动验证
-        enable_verification = ask_auto_verification()
+        enable_verification = ask_auto_verification(config)
         
         # 获取用户输入
-        input_image, output_schem, width, height, selected_blocks = get_user_input()
+        input_image, output_schem, width, height, selected_blocks, output_format = get_user_input(config)
         
-        # 创建转换器并执行转换
-        converter = ImageToSchem()
-        print("\n🔄 开始转换...")
+        # 根据选择的格式加载对应的转换器模块
+        if output_format == OutputFormat.SCHEMATIC:
+            converter_module = load_converter_module("schem")
+            format_name = "schem"
+        elif output_format == OutputFormat.RUNAWAY:
+            converter_module = load_converter_module("runaway")
+            format_name = "runaway"
+        elif output_format == OutputFormat.LITEMATICA:
+            converter_module = load_converter_module("litematic")
+            format_name = "litematic"
+        else:
+            print(f"❌ 不支持的输出格式")
+            sys.exit(1)
+        
+        if converter_module is None:
+            print(f"❌ 无法加载 {format_name} 转换器")
+            sys.exit(1)
+        
+        print(f"\n🔄 开始转换...")
         start_time = time.time()
         
         # 执行转换并获取统计信息
+        converter_class = None
+        
+        # 尝试获取不同的类名
+        class_names = [
+            f"{format_name.capitalize()}Converter",
+            "Converter",
+            "schemConverter" if format_name == "schem" else None,
+            "LitematicaConverter" if format_name == "litematic" else None,
+            "RunawayConverter" if format_name == "runaway" else None
+        ]
+        
+        for class_name in class_names:
+            if class_name and hasattr(converter_module, class_name):
+                converter_class = getattr(converter_module, class_name)
+                break
+        
+        if converter_class is None:
+            # 如果找不到特定的类，尝试获取第一个类
+            for attr_name in dir(converter_module):
+                if not attr_name.startswith('__') and isinstance(getattr(converter_module, attr_name), type):
+                    converter_class = getattr(converter_module, attr_name)
+                    break
+        
+        if converter_class is None:
+            print(f"❌ 在转换器模块中找不到转换器类")
+            sys.exit(1)
+        
+        converter = converter_class(config)
         result = converter.convert(input_image, output_schem, width, height, selected_blocks)
         
-        # 修改这里：检查返回值类型
         if result is not None:
-            # 如果转换成功，result应该是一个包含三个值的元组
             schem_width, schem_height, block_count = result
             elapsed = time.time() - start_time
+            use_color = config.getboolean('ui', 'colored_output', True)
             
             # 显示转换统计信息
-            print(f"\n✅ 转换成功完成! 耗时: {elapsed:.2f}秒")
-            print("="*50)
-            print(f"📐 生成结构尺寸: {schem_width} × {schem_height} 方块")
-            print(f"🧱 总方块数量: {block_count} 个")
-            print(f"💾 输出文件: {os.path.abspath(output_schem)}")
-            
-            # 显示使用的方块类型中文名
-            blocks_info = get_available_blocks()
-            selected_names = []
-            for block in selected_blocks:
-                chinese_name = blocks_info.get(block, block)
-                selected_names.append(f"{block}({chinese_name})")
-            print(f"🎨 使用的方块类型: {', '.join(selected_names)}")
-            print("="*50)
+            if use_color:
+                print(f"\n{Color.GREEN.value}✅ 转换成功完成! 耗时: {elapsed:.2f}秒{Color.RESET.value}")
+                print(f"{Color.CYAN.value}{'='*50}{Color.RESET.value}")
+                print(f"{Color.YELLOW.value}📐 生成结构尺寸: {schem_width} × {schem_height} 方块{Color.RESET.value}")
+                print(f"{Color.YELLOW.value}🧱 总方块数量: {block_count} 个{Color.RESET.value}")
+                print(f"{Color.YELLOW.value}💾 输出文件: {os.path.abspath(output_schem)}{Color.RESET.value}")
+                
+                # 显示使用的方块类型中文名
+                blocks_info = get_available_blocks()
+                selected_names = []
+                for block in selected_blocks:
+                    chinese_name = blocks_info.get(block, block)
+                    selected_names.append(f"{Color.GREEN.value}{block}{Color.RESET.value}({chinese_name})")
+                print(f"{Color.YELLOW.value}🎨 使用的方块类型: {', '.join(selected_names)}{Color.RESET.value}")
+                print(f"{Color.CYAN.value}{'='*50}{Color.RESET.value}")
+            else:
+                print(f"\n✅ 转换成功完成! 耗时: {elapsed:.2f}秒")
+                print(f"{'='*50}")
+                print(f"📐 生成结构尺寸: {schem_width} × {schem_height} 方块")
+                print(f"🧱 总方块数量: {block_count} 个")
+                print(f"💾 输出文件: {os.path.abspath(output_schem)}")
+                
+                # 显示使用的方块类型中文名
+                blocks_info = get_available_blocks()
+                selected_names = []
+                for block in selected_blocks:
+                    chinese_name = blocks_info.get(block, block)
+                    selected_names.append(f"{block}({chinese_name})")
+                print(f"🎨 使用的方块类型: {', '.join(selected_names)}")
+                print(f"{'='*50}")
             
             # 如果启用了自动验证，进行文件验证和修复
-            if enable_verification:
-                # 验证文件
-                is_valid, message = verify_schem_file(output_schem)
+            if enable_verification and output_format == OutputFormat.SCHEMATIC:
+                is_valid, message = verify_schem_file(output_schem, config)
                 
                 if not is_valid:
                     print(f"\n⚠️  文件验证发现问题: {message}")
                     
-                    # 询问用户是否要修复
-                    fix_choice = input("是否尝试自动修复? (y/n, 回车默认为y): ").strip().lower()
+                    fix_choice = input(f"🔧 是否尝试自动修复? (y/n, 回车默认为y): ").strip().lower()
                     if not fix_choice or fix_choice == 'y' or fix_choice == 'yes':
                         fix_start_time = time.time()
-                        fix_success, fix_message, backup_path = fix_schem_file(output_schem, message)
+                        fix_success, fix_message, backup_path = fix_schem_file(output_schem, message, config)
                         
                         if fix_success:
                             fix_elapsed = time.time() - fix_start_time
-                            print(f"\n✅ 自动验证并修复成功完成! 耗时: {fix_elapsed:.2f}秒")
-                            print("="*50)
-                            print(f"📐 生成结构尺寸: {schem_width} × {schem_height} 方块")
-                            print(f"🧱 总方块数量: {block_count} 个")
-                            print(f"💾 原输出文件: {backup_path}")
-                            print(f"💾 修复后文件: {os.path.abspath(output_schem)}")
-                            print(f"🔧 修复内容: {fix_message}")
+                            if use_color:
+                                print(f"\n{Color.GREEN.value}✅ 自动验证并修复成功完成! 耗时: {fix_elapsed:.2f}秒{Color.RESET.value}")
+                                print(f"{Color.CYAN.value}{'='*50}{Color.RESET.value}")
+                                print(f"{Color.YELLOW.value}📐 生成结构尺寸: {schem_width} × {schem_height} 方块{Color.RESET.value}")
+                                print(f"{Color.YELLOW.value}🧱 总方块数量: {block_count} 个{Color.RESET.value}")
+                                print(f"{Color.CYAN.value}📁 原输出文件: {backup_path}{Color.RESET.value}")
+                                print(f"{Color.YELLOW.value}💾 输出文件: {os.path.abspath(output_schem)}{Color.RESET.value}")
+                                print(f"{Color.GREEN.value}🔧 修复内容: {fix_message}{Color.RESET.value}")
+                                print(f"{Color.YELLOW.value}🎨 使用的方块类型: {', '.join(selected_names)}{Color.RESET.value}")
+                                print(f"{Color.CYAN.value}{'='*50}{Color.RESET.value}")
+                            else:
+                                print(f"\n✅ 自动验证并修复成功完成! 耗时: {fix_elapsed:.2f}秒")
+                                print(f"{'='*50}")
+                                print(f"📐 生成结构尺寸: {schem_width} × {schem_height} 方块")
+                                print(f"🧱 总方块数量: {block_count} 个")
+                                print(f"📁 原输出文件: {backup_path}")
+                                print(f"💾 输出文件: {os.path.abspath(output_schem)}")
+                                print(f"🔧 修复内容: {fix_message}")
+                                print(f"🎨 使用的方块类型: {', '.join(selected_names)}")
+                                print(f"{'='*50}")
                             
-                            # 显示使用的方块类型中文名
-                            print(f"🎨 使用的方块类型: {', '.join(selected_names)}")
-                            print("="*50)
-                            
-                            # 验证修复后的文件
-                            print("\n🔍 验证修复后的文件...")
-                            is_valid_after_fix, final_message = verify_schem_file(output_schem)
+                            print(f"\n🔍 验证修复后的文件...")
+                            is_valid_after_fix, final_message = verify_schem_file(output_schem, config)
                             
                             if is_valid_after_fix:
-                                print("✅ 修复后文件验证通过")
+                                if use_color:
+                                    print(f"{Color.GREEN.value}✅ 修复后文件验证通过{Color.RESET.value}")
+                                else:
+                                    print(f"✅ 修复后文件验证通过")
                             else:
                                 print(f"❌ 修复后文件仍然存在问题: {final_message}")
                         else:
                             print(f"❌ 修复失败: {fix_message}")
                     else:
-                        print("⚠️  用户选择不进行修复")
+                        print(f"⚠️  用户选择不进行修复")
                 else:
-                    print("✅ 文件验证通过，无需修复")
+                    if use_color:
+                        print(f"{Color.GREEN.value}✅ 文件验证通过，无需修复{Color.RESET.value}")
+                    else:
+                        print(f"✅ 文件验证通过，无需修复")
             
         else:
-            print("\n❌ 转换失败!")
+            print(f"\n❌ 转换失败!")
             
     except Exception as e:
         print(f"\n❌ 发生错误: {e}")
         import traceback
         traceback.print_exc()
     finally:
-        input("\n按Enter键退出...")
+        input(f"\n按Enter键退出...")
+
+# 主程序入口
+if __name__ == "__main__":
+    main()
