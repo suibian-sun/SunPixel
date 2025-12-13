@@ -96,6 +96,19 @@
             font-weight: 300;
         }
         
+        .version-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: linear-gradient(135deg, #ff6b6b, #ff9ff3);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        
         .main-content {
             flex: 1;
             display: flex;
@@ -231,6 +244,40 @@
         
         .size-inputs input {
             flex: 1;
+        }
+        
+        .format-select {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        
+        .format-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .format-option:hover {
+            border-color: var(--primary-color);
+            background: #f0f8ff;
+        }
+        
+        .format-option.selected {
+            border-color: var(--primary-color);
+            background: #e3f2fd;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+        }
+        
+        .format-option input {
+            width: auto;
+            transform: scale(1.2);
         }
         
         input, select {
@@ -507,6 +554,99 @@
             box-shadow: 0 10px 20px rgba(39, 174, 96, 0.3);
         }
         
+        /* 弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            transform: translateY(20px);
+            animation: slideUp 0.3s forwards;
+        }
+        
+        .modal-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        .modal-body {
+            line-height: 1.8;
+            color: var(--text-color);
+        }
+        
+        .update-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+        
+        .update-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .update-list li::before {
+            content: '✨';
+        }
+        
+        .modal-footer {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .modal-btn {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3);
+        }
+        
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            to { transform: translateY(0); }
+        }
+        
         @media (max-width: 768px) {
             .settings-content {
                 grid-template-columns: 1fr;
@@ -528,15 +668,55 @@
             .header p {
                 font-size: 1.1em;
             }
+            
+            .format-select {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- 更新公告弹窗 -->
+    <div class="modal-overlay" id="updateModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎉 SunPixel 更新公告 V-1.3.1</h2>
+                <p>感谢您使用 SunPixel！</p>
+            </div>
+            <div class="modal-body">
+                <p>本次更新带来了以下改进和新功能：</p>
+                <ul class="update-list">
+                    <li>新增文件夹结构，代码更加模块化</li>
+                    <li>新增配置文件系统，支持自定义设置</li>
+                    <li>新增多语言支持（中英文）</li>
+                    <li>优化终端文字显示，内容更生动</li>
+                    <li>新增文件输出目录自定义配置</li>
+                    <li>新增多文件格式转换支持</li>
+                    <li>将代码拆分为积木形式，每个代码负责一个部分</li>
+                </ul>
+                <p><strong>新增支持的文件格式：</strong></p>
+                <ul class="update-list">
+                    <li><strong>.schem</strong> - 标准结构文件</li>
+                    <li><strong>.json [RunAway]</strong> - RunAway格式结构</li>
+                    <li><strong>.litematic</strong> - Litematica模组结构</li>
+                </ul>
+                <p>希望新版本能为您带来更好的使用体验！</p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn" id="closeUpdateModal">开始使用</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隐藏的下载iframe -->
+    <iframe id="downloadFrame" style="display: none; position: absolute; left: -9999px;"></iframe>
+
     <div class="container">
         <div class="header">
+            <div class="version-badge">V-1.3.1</div>
             <div class="header-content">
                 <h1>SunPixel</h1>
-                <p>将图片转换为 Minecraft .schem 结构文件</p>
+                <p>将图片转换为 Minecraft 结构文件</p>
             </div>
         </div>
         
@@ -569,6 +749,24 @@
                         </div>
                         
                         <div class="form-group">
+                            <label>输出格式</label>
+                            <div class="format-select">
+                                <label class="format-option selected">
+                                    <input type="radio" name="format" value="schem" checked>
+                                    <span>.schem</span>
+                                </label>
+                                <label class="format-option">
+                                    <input type="radio" name="format" value="json">
+                                    <span>.json</span>
+                                </label>
+                                <label class="format-option">
+                                    <input type="radio" name="format" value="litematic">
+                                    <span>.litematic</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
                             <label>选择方块类型</label>
                             <div class="blocks-container" id="blocksContainer">
                                 <!-- 方块选项将通过JavaScript动态加载 -->
@@ -582,7 +780,7 @@
                             
                             <div class="download-section" id="downloadSection">
                                 <p>✅ 转换完成！点击下方按钮下载文件</p>
-                                <a href="#" class="download-btn" id="downloadBtn">📥 下载 .schem 文件</a>
+                                <a href="#" class="download-btn" id="downloadBtn" download>📥 下载结构文件</a>
                             </div>
                         </div>
                     </div>
@@ -600,16 +798,16 @@
                 </div>
                 <div class="console" id="console">
                     <div class="console-content" id="consoleContent">
-                        <div class="console-line info">🚀 SunPixel Web版已就绪</div>
+                        <div class="console-line info">🚀 SunPixel Web版 V-1.3.1 已就绪</div>
                         <div class="console-line info">📝 请上传图片并设置参数开始转换</div>
-                        <div class="console-line info">💡 提示: 拖拽图片到上传区域或点击选择文件</div>
+                        <div class="console-line info">💡 提示: 支持.schem、.json、.litematic三种格式</div>
                     </div>
                 </div>
             </div>
         </div>
         
         <div class="github-link">
-            <p>开源项目: <a href="https://github.com/suibian-sun/SunPixel" target="_blank">GitHub - SunPixel</a> | 作者: suibian-sun</p>
+            <p>开源项目: <a href="https://github.com/suibian-sun/SunPixel" target="_blank">GitHub - SunPixel</a> | 作者: suibian-sun | 版本: V-1.3.1</p>
         </div>
     </div>
 
@@ -634,6 +832,36 @@
         const copyLogsBtn = document.getElementById('copyLogsBtn');
         const downloadSection = document.getElementById('downloadSection');
         const downloadBtn = document.getElementById('downloadBtn');
+        const updateModal = document.getElementById('updateModal');
+        const closeUpdateModalBtn = document.getElementById('closeUpdateModal');
+        const formatOptions = document.querySelectorAll('.format-option');
+        const downloadFrame = document.getElementById('downloadFrame');
+        
+        // 显示更新公告
+        setTimeout(() => {
+            updateModal.style.display = 'flex';
+        }, 500);
+        
+        // 关闭更新公告
+        closeUpdateModalBtn.addEventListener('click', () => {
+            updateModal.style.display = 'none';
+        });
+        
+        // 点击外部关闭弹窗
+        updateModal.addEventListener('click', (e) => {
+            if (e.target === updateModal) {
+                updateModal.style.display = 'none';
+            }
+        });
+        
+        // 格式选择交互
+        formatOptions.forEach(option => {
+            const radio = option.querySelector('input');
+            radio.addEventListener('change', () => {
+                formatOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+            });
+        });
         
         // 事件监听器
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -659,8 +887,8 @@
         
         function clearConsole() {
             consoleContent.innerHTML = '';
-            logToConsole('控制台已清空', 'info');
-            logToConsole('🚀 SunPixel Web版已就绪', 'info');
+            logToConsole('🔄 控制台已清空', 'info');
+            logToConsole('🚀 SunPixel Web版 V-1.3.1 已就绪', 'info');
             logToConsole('📝 请上传图片并设置参数开始转换', 'info');
         }
         
@@ -791,10 +1019,18 @@
                     if (!data.is_running && progressInterval) {
                         stopProgressPolling();
                         
-                        if (data.progress === 100 && data.result_data) {
+                        if (data.progress === 100 && data.filename) {
                             // 显示下载按钮
                             downloadSection.style.display = 'block';
-                            downloadBtn.href = `/api/download/${taskId}`;
+                            
+                            // 使用完整的URL路径
+                            const baseUrl = window.location.origin;
+                            const downloadUrl = `${baseUrl}/api/download/${taskId}`;
+                            
+                            downloadBtn.href = downloadUrl;
+                            downloadBtn.download = data.filename;
+                            downloadBtn.textContent = `📥 下载 ${data.filename}`;
+                            
                             logToConsole('🎉 转换完成！点击下载按钮获取文件', 'success');
                         } else {
                             logToConsole('❌ 转换失败', 'error');
@@ -831,6 +1067,7 @@
             const height = document.getElementById('height').value || null;
             const selectedBlocks = Array.from(document.querySelectorAll('input[name="blocks"]:checked'))
                 .map(checkbox => checkbox.value);
+            const format = document.querySelector('input[name="format"]:checked').value;
             
             if (selectedBlocks.length === 0) {
                 logToConsole('❌ 请至少选择一个方块类型', 'error');
@@ -840,6 +1077,7 @@
             // 显示开始信息
             logToConsole('🚀 开始转换流程...', 'info');
             logToConsole(`📦 选择的方块类型: ${selectedBlocks.join(', ')}`, 'info');
+            logToConsole(`📁 输出格式: .${format}`, 'info');
             if (width && height) {
                 logToConsole(`📐 设置尺寸: ${width} × ${height} 方块`, 'info');
             } else {
@@ -852,6 +1090,7 @@
                 formData.append('image', currentFile);
                 if (width) formData.append('width', width);
                 if (height) formData.append('height', height);
+                formData.append('format', format);
                 selectedBlocks.forEach(block => formData.append('blocks[]', block));
                 
                 // 开始转换
@@ -886,8 +1125,41 @@
         
         function handleDownload(e) {
             e.preventDefault();
-            // 使用新窗口打开下载链接
-            window.open(downloadBtn.href, '_blank');
+            e.stopPropagation();
+            
+            if (!downloadBtn.href || downloadBtn.href === '#') {
+                logToConsole('❌ 下载链接无效', 'error');
+                return;
+            }
+            
+            logToConsole('📥 正在准备下载...', 'info');
+            
+            try {
+                // 方法1: 使用创建临时链接下载（兼容性最好）
+                const tempLink = document.createElement('a');
+                tempLink.href = downloadBtn.href;
+                tempLink.download = downloadBtn.download || 'structure.schem';
+                tempLink.style.display = 'none';
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                
+                // 清理临时元素
+                setTimeout(() => {
+                    document.body.removeChild(tempLink);
+                    logToConsole('✅ 下载已开始，请检查浏览器下载列表', 'success');
+                }, 100);
+                
+                // 方法2: 备用方案 - 使用隐藏iframe
+                setTimeout(() => {
+                    downloadFrame.src = downloadBtn.href;
+                }, 200);
+                
+            } catch (error) {
+                logToConsole('❌ 下载失败: ' + error.message, 'error');
+                
+                // 方法3: 最后的手段 - 直接跳转
+                window.location.href = downloadBtn.href;
+            }
         }
         
         // 初始化控制台
