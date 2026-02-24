@@ -52,61 +52,139 @@ jobs:
             git push -u origin main
           fi
 
-      - name: Copy cli and web directories to release-repo
-        if: github.event_name == 'push'
+  send-start-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Send start email notification
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
-          set -e
-          cd release-repo
-          # Copy cli directory
-          if [ -d "../cli" ]; then
-            rm -rf cli
-            cp -r ../cli cli
-            echo "Copied cli directory"
-          fi
-          # Copy web directory
-          if [ -d "../web" ]; then
-            rm -rf web
-            cp -r ../web web
-            echo "Copied web directory"
-          fi
-          # Commit and push changes
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git add cli web
-            git -c user.name="sunpixel-bot" -c user.email="bot@users.noreply.github.com" commit -m "chore: copy cli and web directories from main repo"
-            git push
-            echo "Changes pushed to release-repo"
-          fi
+          python3 << 'EOF'
+          import os
+          import smtplib
+          from email.mime.text import MIMEText
+          from email.mime.multipart import MIMEMultipart
+          from datetime import datetime
 
-      - name: Create GitHub Release in suibian-sun/SunPixel-Release
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          tag="commit-${GITHUB_SHA}"
-          if gh release view "$tag" --repo suibian-sun/SunPixel-Release >/dev/null 2>&1; then
-            echo "Release $tag already exists, skipping create"
-          else
-            commit_msg=$(git log -1 --pretty=%B)
-            {
-              printf 'Automated release from commit %s on ref %s\n' "$GITHUB_SHA" "$GITHUB_REF"
-              echo
-              echo "Commit message:"
-              printf '%s\n' "$commit_msg"
-            } > release_notes.txt
-            gh release create "$tag" \
-              --repo suibian-sun/SunPixel-Release \
-              --title "SunPixel GO CLI $tag" \
-              --notes-file release_notes.txt
-          fi
+          # 硬编码邮件配置
+          MAIL_SERVER = 'smtp.163.com'
+          MAIL_PORT = 465
+          MAIL_USERNAME = 'ctigzs@163.com'
+          MAIL_AUTHORIZATION_CODE = 'LE2DccrtktrjNdLm'
+          MAIL_FROM_NAME = 'SunBot'
+          MAIL_TO = '3214837362@qq.com'
+
+          # Workflow information
+          workflow = os.getenv('GITHUB_WORKFLOW', '未知')
+          repository = os.getenv('GITHUB_REPOSITORY', '未知')
+          sha = os.getenv('GITHUB_SHA', '未知')
+          ref = os.getenv('GITHUB_REF', '未知')
+          run_id = os.getenv('GITHUB_RUN_ID', '未知')
+          run_number = os.getenv('GITHUB_RUN_NUMBER', '未知')
+          event_name = os.getenv('GITHUB_EVENT_NAME', '未知')
+
+          # Create email content in Chinese
+          subject = f"[开始构建] SunPixel CI/CD - 运行 #{run_number}"
+          
+          html_content = f"""
+          <html>
+          <head>
+              <meta charset="UTF-8">
+              <style>
+                  body {{ font-family: "Microsoft YaHei", Arial, sans-serif; line-height: 1.6; color: #333; }}
+                  .container {{ max-width: 650px; margin: 0 auto; padding: 20px; }}
+                  .header {{ background-color: #2196F3; color: white; padding: 15px; border-radius: 5px; text-align: center; }}
+                  .content {{ background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin-top: 20px; }}
+                  .section {{ margin-bottom: 20px; }}
+                  .section h3 {{ color: #666; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
+                  table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+                  th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
+                  th {{ background-color: #f0f0f0; }}
+                  .footer {{ margin-top: 20px; padding: 10px; text-align: center; color: #999; font-size: 12px; }}
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <div class="header">
+                      <h2>🚀 构建任务已开始</h2>
+                  </div>
+                  <div class="content">
+                      <div class="section">
+                          <h3>📋 工作流信息</h3>
+                          <table>
+                              <tr><th>工作流名称</th><td>{workflow}</td></tr>
+                              <tr><th>仓库</th><td>{repository}</td></tr>
+                              <tr><th>运行编号</th><td>#{run_number}</td></tr>
+                              <tr><th>运行 ID</th><td>{run_id}</td></tr>
+                              <tr><th>触发事件</th><td>{event_name}</td></tr>
+                              <tr><th>分支/引用</th><td>{ref}</td></tr>
+                              <tr><th>提交 SHA</th><td><code>{sha[:7]}</code></td></tr>
+                              <tr><th>开始时间</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
+                          </table>
+                      </div>
+                      <div class="section">
+                          <h3>🔧 构建任务</h3>
+                          <p>以下平台正在构建中：</p>
+                          <ul>
+                              <li>Linux AMD64</li>
+                              <li>Linux ARM64</li>
+                              <li>Android ARM64</li>
+                              <li>macOS AMD64</li>
+                              <li>macOS ARM64</li>
+                              <li>Windows AMD64</li>
+                              <li>Windows ARM64</li>
+                          </ul>
+                      </div>
+                      <div class="section">
+                          <h3>🔗 相关链接</h3>
+                          <p>
+                              <a href="https://github.com/{repository}/actions/runs/{run_id}">查看工作流运行详情</a>
+                          </p>
+                      </div>
+                  </div>
+                  <div class="footer">
+                      <p>此邮件由 {MAIL_FROM_NAME} 自动发送</p>
+                  </div>
+              </div>
+          </body>
+          </html>
+          """
+
+          # Create email message
+          msg = MIMEMultipart('alternative')
+          msg['Subject'] = subject
+          msg['From'] = f"{MAIL_FROM_NAME} <{MAIL_USERNAME}>"
+          msg['To'] = MAIL_TO
+
+          # Attach HTML content
+          html_part = MIMEText(html_content, 'html', 'utf-8')
+          msg.attach(html_part)
+
+          # Send email
+          try:
+              with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
+                  server.login(MAIL_USERNAME, MAIL_AUTHORIZATION_CODE)
+                  server.send_message(msg)
+              print(f"开始通知邮件已成功发送至 {MAIL_TO}")
+          except Exception as e:
+              print(f"发送开始通知邮件失败: {str(e)}")
+          EOF
 
   linux-amd64:
     runs-on: ubuntu-latest
-    needs: prepare-release
+    needs: [prepare-release, send-start-notification]
+    if: always() && needs.prepare-release.result != 'skipped'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -152,19 +230,17 @@ jobs:
         run: |
           sha512sum build/SunPixel-cli_linux_amd64 | awk '{print $1}' > build/SunPixel-cli_linux_amd64.sha
 
-      - name: Upload asset to release
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          tag="commit-${GITHUB_SHA}"
-          gh release upload "$tag" build/SunPixel-cli_linux_amd64 --repo suibian-sun/SunPixel-Release --clobber
-          gh release upload "$tag" build/SunPixel-cli_linux_amd64.sha --repo suibian-sun/SunPixel-Release --clobber
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-amd64-build
+          path: build/
+          retention-days: 1
 
   linux-arm64:
     runs-on: ubuntu-latest
-    needs: prepare-release
+    needs: [prepare-release, send-start-notification]
+    if: always() && needs.prepare-release.result != 'skipped'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -210,19 +286,17 @@ jobs:
         run: |
           sha512sum build/SunPixel-cli_linux_arm64 | awk '{print $1}' > build/SunPixel-cli_linux_arm64.sha
 
-      - name: Upload asset to release
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          tag="commit-${GITHUB_SHA}"
-          gh release upload "$tag" build/SunPixel-cli_linux_arm64 --repo suibian-sun/SunPixel-Release --clobber
-          gh release upload "$tag" build/SunPixel-cli_linux_arm64.sha --repo suibian-sun/SunPixel-Release --clobber
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-build
+          path: build/
+          retention-days: 1
 
   android-arm64:
     runs-on: ubuntu-latest
-    needs: prepare-release
+    needs: [prepare-release, send-start-notification]
+    if: always() && needs.prepare-release.result != 'skipped'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -278,19 +352,17 @@ jobs:
         run: |
           sha512sum build/SunPixel-cli_android_arm64 | awk '{print $1}' > build/SunPixel-cli_android_arm64.sha
 
-      - name: Upload asset to release
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          tag="commit-${GITHUB_SHA}"
-          gh release upload "$tag" build/SunPixel-cli_android_arm64 --repo suibian-sun/SunPixel-Release --clobber
-          gh release upload "$tag" build/SunPixel-cli_android_arm64.sha --repo suibian-sun/SunPixel-Release --clobber
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-arm64-build
+          path: build/
+          retention-days: 1
 
   darwin-amd64:
     runs-on: ubuntu-latest
-    needs: prepare-release
+    needs: [prepare-release, send-start-notification]
+    if: always() && needs.prepare-release.result != 'skipped'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -329,19 +401,17 @@ jobs:
         run: |
           sha512sum build/SunPixel-cli_darwin_amd64 | awk '{print $1}' > build/SunPixel-cli_darwin_amd64.sha
 
-      - name: Upload asset to release
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          tag="commit-${GITHUB_SHA}"
-          gh release upload "$tag" build/SunPixel-cli_darwin_amd64 --repo suibian-sun/SunPixel-Release --clobber
-          gh release upload "$tag" build/SunPixel-cli_darwin_amd64.sha --repo suibian-sun/SunPixel-Release --clobber
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin-amd64-build
+          path: build/
+          retention-days: 1
 
   darwin-arm64:
     runs-on: ubuntu-latest
-    needs: prepare-release
+    needs: [prepare-release, send-start-notification]
+    if: always() && needs.prepare-release.result != 'skipped'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -380,19 +450,17 @@ jobs:
         run: |
           sha512sum build/SunPixel-cli_darwin_arm64 | awk '{print $1}' > build/SunPixel-cli_darwin_arm64.sha
 
-      - name: Upload asset to release
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          tag="commit-${GITHUB_SHA}"
-          gh release upload "$tag" build/SunPixel-cli_darwin_arm64 --repo suibian-sun/SunPixel-Release --clobber
-          gh release upload "$tag" build/SunPixel-cli_darwin_arm64.sha --repo suibian-sun/SunPixel-Release --clobber
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin-arm64-build
+          path: build/
+          retention-days: 1
 
   windows-amd64:
     runs-on: ubuntu-latest
-    needs: prepare-release
+    needs: [prepare-release, send-start-notification]
+    if: always() && needs.prepare-release.result != 'skipped'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -438,19 +506,17 @@ jobs:
         run: |
           sha512sum build/SunPixel-cli_windows_amd64.exe | awk '{print $1}' > build/SunPixel-cli_windows_amd64.exe.sha
 
-      - name: Upload asset to release
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          tag="commit-${GITHUB_SHA}"
-          gh release upload "$tag" build/SunPixel-cli_windows_amd64.exe --repo suibian-sun/SunPixel-Release --clobber
-          gh release upload "$tag" build/SunPixel-cli_windows_amd64.exe.sha --repo suibian-sun/SunPixel-Release --clobber
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-amd64-build
+          path: build/
+          retention-days: 1
 
   windows-arm64:
     runs-on: ubuntu-latest
-    needs: prepare-release
+    needs: [prepare-release, send-start-notification]
+    if: always() && needs.prepare-release.result != 'skipped'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -489,19 +555,140 @@ jobs:
         run: |
           sha512sum build/SunPixel-cli_windows_arm64.exe | awk '{print $1}' > build/SunPixel-cli_windows_arm64.exe.sha
 
-      - name: Upload asset to release
-        if: github.event_name == 'push'
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-build
+          path: build/
+          retention-days: 1
+
+  push-to-release:
+    runs-on: ubuntu-latest
+    needs: [prepare-release, linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
+    if: github.event_name == 'push' && !cancelled() && !failure()
+    steps:
+      - name: Checkout release repo
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          git clone https://${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git release-repo
+          
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          
+      - name: Copy cli and web directories
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          cd release-repo
+          
+          # Copy cli directory from main repo
+          git clone https://${GH_PAT}@github.com/${{ github.repository }}.git temp-repo
+          if [ -d "temp-repo/cli" ]; then
+            rm -rf cli
+            cp -r temp-repo/cli cli
+            echo "Copied cli directory"
+          fi
+          if [ -d "temp-repo/web" ]; then
+            rm -rf web
+            cp -r temp-repo/web web
+            echo "Copied web directory"
+          fi
+          rm -rf temp-repo
+          
+      - name: Prepare binaries directory
+        run: |
+          mkdir -p release-repo/binaries
+          
+      - name: Collect all binaries
+        run: |
+          # Create binaries directory
+          mkdir -p release-repo/binaries
+          
+          # Copy all build artifacts to binaries directory
+          find artifacts -name "*.sha" -exec cp {} release-repo/binaries/ \;
+          find artifacts -name "SunPixel-cli_*" -exec cp {} release-repo/binaries/ \;
+          
+          # List collected files
+          echo "Collected binaries:"
+          ls -la release-repo/binaries/
+          
+      - name: Commit and push to release repo
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          cd release-repo
+          
+          # Add all changes
+          git add cli web binaries
+          
+          # Check if there are changes to commit
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            commit_msg="chore: release build from commit ${GITHUB_SHA:0:7}"
+            git -c user.name="sunpixel-bot" -c user.email="bot@users.noreply.github.com" commit -m "$commit_msg"
+            git push
+            echo "Changes pushed to release-repo"
+          fi
+          
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -e
           tag="commit-${GITHUB_SHA}"
-          gh release upload "$tag" build/SunPixel-cli_windows_arm64.exe --repo suibian-sun/SunPixel-Release --clobber
-          gh release upload "$tag" build/SunPixel-cli_windows_arm64.exe.sha --repo suibian-sun/SunPixel-Release --clobber
+          
+          if gh release view "$tag" --repo suibian-sun/SunPixel-Release >/dev/null 2>&1; then
+            echo "Release $tag already exists, updating assets..."
+          else
+            commit_msg=$(git log -1 --pretty=%B)
+            {
+              printf 'Automated release from commit %s on ref %s\n' "$GITHUB_SHA" "$GITHUB_REF"
+              echo
+              echo "Commit message:"
+              printf '%s\n' "$commit_msg"
+              echo
+              echo "Build artifacts for all platforms:"
+              echo "- Linux AMD64"
+              echo "- Linux ARM64"
+              echo "- Android ARM64"
+              echo "- macOS AMD64"
+              echo "- macOS ARM64"
+              echo "- Windows AMD64"
+              echo "- Windows ARM64"
+            } > release_notes.txt
+            gh release create "$tag" \
+              --repo suibian-sun/SunPixel-Release \
+              --title "SunPixel GO CLI $tag" \
+              --notes-file release_notes.txt
+          fi
+          
+      - name: Upload all binaries to release
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          tag="commit-${GITHUB_SHA}"
+          
+          # Upload all binaries and sha files
+          for file in release-repo/binaries/*; do
+            if [ -f "$file" ]; then
+              echo "Uploading $file"
+              gh release upload "$tag" "$file" --repo suibian-sun/SunPixel-Release --clobber
+            fi
+          done
+          
+          echo "All binaries uploaded successfully"
 
-  send-notification:
+  send-completion-notification:
     runs-on: ubuntu-latest
-    needs: [prepare-release, linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
+    needs: [prepare-release, send-start-notification, push-to-release]
     if: always()
     steps:
       - name: Setup Python
@@ -509,7 +696,7 @@ jobs:
         with:
           python-version: '3.11'
           
-      - name: Send email notification
+      - name: Send completion email notification
         env:
           GITHUB_WORKFLOW: ${{ github.workflow }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -519,13 +706,7 @@ jobs:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           JOB_STATUS_PREPARE: ${{ needs.prepare-release.result }}
-          JOB_STATUS_LINUX_AMD64: ${{ needs.linux-amd64.result }}
-          JOB_STATUS_LINUX_ARM64: ${{ needs.linux-arm64.result }}
-          JOB_STATUS_ANDROID_ARM64: ${{ needs.android-arm64.result }}
-          JOB_STATUS_DARWIN_AMD64: ${{ needs.darwin-amd64.result }}
-          JOB_STATUS_DARWIN_ARM64: ${{ needs.darwin-arm64.result }}
-          JOB_STATUS_WINDOWS_AMD64: ${{ needs.windows-amd64.result }}
-          JOB_STATUS_WINDOWS_ARM64: ${{ needs.windows-arm64.result }}
+          JOB_STATUS_PUSH: ${{ needs.push-to-release.result }}
         run: |
           python3 << 'EOF'
           import os
@@ -551,44 +732,29 @@ jobs:
           run_number = os.getenv('GITHUB_RUN_NUMBER', '未知')
           event_name = os.getenv('GITHUB_EVENT_NAME', '未知')
 
-          # Job statuses with Chinese names
-          jobs_cn = {
-              'prepare-release': os.getenv('JOB_STATUS_PREPARE', 'unknown'),
-              'linux-amd64': os.getenv('JOB_STATUS_LINUX_AMD64', 'unknown'),
-              'linux-arm64': os.getenv('JOB_STATUS_LINUX_ARM64', 'unknown'),
-              'android-arm64': os.getenv('JOB_STATUS_ANDROID_ARM64', 'unknown'),
-              'darwin-amd64': os.getenv('JOB_STATUS_DARWIN_AMD64', 'unknown'),
-              'darwin-arm64': os.getenv('JOB_STATUS_DARWIN_ARM64', 'unknown'),
-              'windows-amd64': os.getenv('JOB_STATUS_WINDOWS_AMD64', 'unknown'),
-              'windows-arm64': os.getenv('JOB_STATUS_WINDOWS_ARM64', 'unknown'),
-          }
-
-          # Job display names in Chinese
-          job_display_names = {
-              'prepare-release': '准备发布',
-              'linux-amd64': 'Linux AMD64',
-              'linux-arm64': 'Linux ARM64',
-              'android-arm64': 'Android ARM64',
-              'darwin-amd64': 'macOS AMD64',
-              'darwin-arm64': 'macOS ARM64',
-              'windows-amd64': 'Windows AMD64',
-              'windows-arm64': 'Windows ARM64',
-          }
+          # Job statuses
+          prepare_status = os.getenv('JOB_STATUS_PREPARE', 'unknown')
+          push_status = os.getenv('JOB_STATUS_PUSH', 'unknown')
 
           # Determine overall status
-          has_failure = any(status == 'failure' for status in jobs_cn.values())
-          overall_status = '失败' if has_failure else '成功'
+          if push_status == 'success':
+              overall_status = '成功'
+              status_color = '#4CAF50'
+              status_icon = '✅'
+              status_message = '所有平台二进制文件已成功构建并推送到 Release 仓库'
+          elif push_status == 'skipped':
+              overall_status = '跳过'
+              status_color = '#9E9E9E'
+              status_icon = '⏭️'
+              status_message = '推送任务被跳过（可能不是 Release 提交）'
+          else:
+              overall_status = '失败'
+              status_color = '#f44336'
+              status_icon = '❌'
+              status_message = '构建或推送过程中出现错误'
 
           # Create email content in Chinese
           subject = f"[{overall_status}] SunPixel CI/CD - 运行 #{run_number}"
-          
-          # Status display in Chinese
-          status_display_map = {
-              'success': '成功',
-              'failure': '失败',
-              'skipped': '跳过',
-              'unknown': '未知'
-          }
           
           html_content = f"""
           <html>
@@ -597,7 +763,7 @@ jobs:
               <style>
                   body {{ font-family: "Microsoft YaHei", Arial, sans-serif; line-height: 1.6; color: #333; }}
                   .container {{ max-width: 650px; margin: 0 auto; padding: 20px; }}
-                  .header {{ background-color: {'#f44336' if overall_status == '失败' else '#4CAF50'};
+                  .header {{ background-color: {status_color};
                              color: white; padding: 15px; border-radius: 5px; text-align: center; }}
                   .content {{ background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin-top: 20px; }}
                   .section {{ margin-bottom: 20px; }}
@@ -615,7 +781,7 @@ jobs:
           <body>
               <div class="container">
                   <div class="header">
-                      <h2>{'❌ 工作流执行失败' if overall_status == '失败' else '✅ 工作流执行成功'}</h2>
+                      <h2>{status_icon} {status_message}</h2>
                   </div>
                   <div class="content">
                       <div class="section">
@@ -628,28 +794,33 @@ jobs:
                               <tr><th>触发事件</th><td>{event_name}</td></tr>
                               <tr><th>分支/引用</th><td>{ref}</td></tr>
                               <tr><th>提交 SHA</th><td><code>{sha[:7]}</code></td></tr>
-                              <tr><th>时间戳</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
+                              <tr><th>完成时间</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
                           </table>
                       </div>
                       <div class="section">
                           <h3>📦 任务状态</h3>
                           <table>
-                              <tr><th>任务</th><th>状态</th></tr>
-          """
-
-          for job_name, status in jobs_cn.items():
-              display_name = job_display_names.get(job_name, job_name)
-              status_class = f'status-{status}' if status in ['success', 'failure', 'skipped'] else 'status-unknown'
-              status_text = status_display_map.get(status, status)
-              html_content += f'<tr><td>{display_name}</td><td class="{status_class}">{status_text}</td></tr>\n'
-
-          html_content += f"""
+                              <tr><th>准备发布</th><td class="status-{'success' if prepare_status == 'success' else 'failure' if prepare_status == 'failure' else 'skipped'}">{'成功' if prepare_status == 'success' else '失败' if prepare_status == 'failure' else '跳过'}</td></tr>
+                              <tr><th>推送至 Release</th><td class="status-{'success' if push_status == 'success' else 'failure' if push_status == 'failure' else 'skipped'}">{'成功' if push_status == 'success' else '失败' if push_status == 'failure' else '跳过'}</td></tr>
                           </table>
+                      </div>
+                      <div class="section">
+                          <h3>📦 已构建平台</h3>
+                          <ul>
+                              <li>Linux AMD64</li>
+                              <li>Linux ARM64</li>
+                              <li>Android ARM64</li>
+                              <li>macOS AMD64</li>
+                              <li>macOS ARM64</li>
+                              <li>Windows AMD64</li>
+                              <li>Windows ARM64</li>
+                          </ul>
                       </div>
                       <div class="section">
                           <h3>🔗 相关链接</h3>
                           <p>
-                              <a href="https://github.com/{repository}/actions/runs/{run_id}">查看工作流运行详情</a>
+                              <a href="https://github.com/{repository}/actions/runs/{run_id}">查看工作流运行详情</a><br>
+                              <a href="https://github.com/suibian-sun/SunPixel-Release/releases/tag/commit-{sha[:7]}">查看 Release</a>
                           </p>
                       </div>
                   </div>
@@ -676,7 +847,7 @@ jobs:
               with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
                   server.login(MAIL_USERNAME, MAIL_AUTHORIZATION_CODE)
                   server.send_message(msg)
-              print(f"邮件已成功发送至 {MAIL_TO}")
+              print(f"完成通知邮件已成功发送至 {MAIL_TO}")
           except Exception as e:
-              print(f"发送邮件失败: {str(e)}")
+              print(f"发送完成通知邮件失败: {str(e)}")
           EOF
