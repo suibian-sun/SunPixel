@@ -582,16 +582,15 @@ jobs:
           path: build/
           retention-days: 1
 
-  # 检查所有构建任务的状态 - 这个任务必须始终运行
+  # 检查所有构建任务的状态
   check-build-status:
     runs-on: ubuntu-latest
-    # 合并条件：只有在 Release 提交时才运行，并且即使构建任务失败也要运行
-    if: always() && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
-    # 需要等待所有构建任务完成
+    # 只要满足条件就运行，即使依赖的任务失败也要运行
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
+    # 需要等待所有构建任务完成，但不要求它们成功
     needs: [linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
     outputs:
       should_push: ${{ steps.check.outputs.should_push }}
-      failure_count: ${{ steps.check.outputs.failure_count }}
     steps:
       - name: Check all build jobs status
         id: check
@@ -614,21 +613,8 @@ jobs:
           echo "Windows AMD64: $WINDOWS_AMD64"
           echo "Windows ARM64: $WINDOWS_ARM64"
           
-          # 初始化计数器
-          SUCCESS_COUNT=0
+          # 检查是否有失败的任务
           FAILED_COUNT=0
-          SKIPPED_COUNT=0
-          
-          # 统计成功数量
-          [[ "$LINUX_AMD64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
-          [[ "$LINUX_ARM64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
-          [[ "$ANDROID_ARM64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
-          [[ "$DARWIN_AMD64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
-          [[ "$DARWIN_ARM64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
-          [[ "$WINDOWS_AMD64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
-          [[ "$WINDOWS_ARM64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
-          
-          # 统计失败数量
           [[ "$LINUX_AMD64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
           [[ "$LINUX_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
           [[ "$ANDROID_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
@@ -637,66 +623,55 @@ jobs:
           [[ "$WINDOWS_AMD64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
           [[ "$WINDOWS_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
           
-          # 统计跳过数量
-          [[ "$LINUX_AMD64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
-          [[ "$LINUX_ARM64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
-          [[ "$ANDROID_ARM64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
-          [[ "$DARWIN_AMD64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
-          [[ "$DARWIN_ARM64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
-          [[ "$WINDOWS_AMD64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
-          [[ "$WINDOWS_ARM64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
-          
-          echo "📈 统计结果："
-          echo "成功: $SUCCESS_COUNT"
-          echo "失败: $FAILED_COUNT"
-          echo "跳过: $SKIPPED_COUNT"
-          
-          echo "failure_count=$FAILED_COUNT" >> $GITHUB_OUTPUT
-          
-          # 只有当至少有一个任务失败时才跳过推送
           if [ $FAILED_COUNT -gt 0 ]; then
-            echo "⚠️ 有 $FAILED_COUNT 个构建任务失败，跳过推送到 release 仓库"
+            echo "⚠️ 有 $FAILED_COUNT 个构建任务失败"
             echo "should_push=false" >> $GITHUB_OUTPUT
           else
-            echo "✅ 所有 7 个构建任务均成功完成，将推送到 release 仓库"
+            echo "✅ 所有构建任务均成功"
             echo "should_push=true" >> $GITHUB_OUTPUT
           fi
 
+  # 推送任务 - 无论如何都执行
   push-to-release:
     runs-on: ubuntu-latest
-    # 只有在 Release 提交且 check-build-status 成功执行后才运行
+    # 移除所有条件，让这个任务总是运行
     if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
-    # 只依赖 check-build-status，不直接依赖构建任务
+    # 依赖检查任务，但不要求它成功
     needs: [check-build-status]
+    # 即使依赖的任务失败也继续执行
+    if: always() && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
     steps:
       - name: Check if push is allowed
+        id: check_push
         run: |
           SHOULD_PUSH="${{ needs.check-build-status.outputs.should_push }}"
-          FAILURE_COUNT="${{ needs.check-build-status.outputs.failure_count }}"
           
           echo "🔍 检查推送条件："
           echo "should_push: $SHOULD_PUSH"
-          echo "failure_count: $FAILURE_COUNT"
           
           if [ "$SHOULD_PUSH" != "true" ]; then
-            echo "❌ 由于有 $FAILURE_COUNT 个构建任务失败，跳过推送"
-            exit 1
+            echo "❌ 构建任务未全部成功，跳过推送操作"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ 所有构建任务成功，将执行推送操作"
+            echo "skip=false" >> $GITHUB_OUTPUT
           fi
           
-          echo "✅ 所有构建任务成功，继续推送"
-          
       - name: Checkout current repository
+        if: steps.check_push.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           path: current-repo
           
       - name: Download all build artifacts
+        if: steps.check_push.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           
       - name: Clone release repository
+        if: steps.check_push.outputs.skip != 'true'
         run: |
           set -e
           # 硬编码 PAT
@@ -704,6 +679,7 @@ jobs:
           git clone https://oauth2:${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git release-repo
           
       - name: Copy cli and web directories
+        if: steps.check_push.outputs.skip != 'true'
         run: |
           set -e
           cd release-repo
@@ -723,10 +699,12 @@ jobs:
           fi
           
       - name: Prepare binaries directory
+        if: steps.check_push.outputs.skip != 'true'
         run: |
           mkdir -p release-repo/binaries
           
       - name: Collect all binaries
+        if: steps.check_push.outputs.skip != 'true'
         run: |
           set -e
           # 创建二进制文件目录
@@ -748,11 +726,13 @@ jobs:
           ls -la release-repo/binaries/ || echo "No binaries found"
           
       - name: Configure Git
+        if: steps.check_push.outputs.skip != 'true'
         run: |
           git config --global user.name "sunpixel-bot"
           git config --global user.email "bot@users.noreply.github.com"
           
       - name: Commit and push to release repo
+        if: steps.check_push.outputs.skip != 'true'
         run: |
           set -e
           cd release-repo
@@ -774,6 +754,7 @@ jobs:
           fi
           
       - name: Create GitHub Release
+        if: steps.check_push.outputs.skip != 'true'
         env:
           GH_TOKEN: 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
         run: |
@@ -813,6 +794,7 @@ jobs:
           fi
           
       - name: Upload all binaries to release
+        if: steps.check_push.outputs.skip != 'true'
         env:
           GH_TOKEN: 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
         run: |
@@ -832,6 +814,15 @@ jobs:
           else
             echo "No binaries found to upload"
           fi
+
+      - name: Skip notification
+        if: steps.check_push.outputs.skip == 'true'
+        run: |
+          echo "=========================================="
+          echo "⚠️ 推送任务已跳过"
+          echo "原因：部分构建任务失败"
+          echo "请检查构建日志了解详情"
+          echo "=========================================="
 
   send-completion-notification:
     runs-on: ubuntu-latest
