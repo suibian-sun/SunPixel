@@ -176,7 +176,7 @@ jobs:
   linux-amd64:
     runs-on: ubuntu-latest
     needs: [prepare-release, send-start-notification]
-    if: always() && needs.prepare-release.result != 'skipped'
+    # 移除导致跳过的条件，始终执行
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -184,7 +184,6 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
-          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -202,15 +201,14 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: cd current-repo && go generate ./constants
+        run: go generate ./constants
 
       - name: Build Linux amd64
         run: |
-          cd current-repo
           GOOS=linux GOARCH=amd64 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o ../build/SunPixel-cli_linux_amd64 \
+            -o build/SunPixel-cli_linux_amd64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -234,7 +232,7 @@ jobs:
   linux-arm64:
     runs-on: ubuntu-latest
     needs: [prepare-release, send-start-notification]
-    if: always() && needs.prepare-release.result != 'skipped'
+    # 移除导致跳过的条件，始终执行
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -242,7 +240,6 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
-          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -260,15 +257,14 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: cd current-repo && go generate ./constants
+        run: go generate ./constants
 
       - name: Build Linux arm64
         run: |
-          cd current-repo
           GOOS=linux GOARCH=arm64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o ../build/SunPixel-cli_linux_arm64 \
+            -o build/SunPixel-cli_linux_arm64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -292,7 +288,7 @@ jobs:
   android-arm64:
     runs-on: ubuntu-latest
     needs: [prepare-release, send-start-notification]
-    if: always() && needs.prepare-release.result != 'skipped'
+    # 移除导致跳过的条件，始终执行
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -300,7 +296,6 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
-          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -324,19 +319,18 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: cd current-repo && go generate ./constants
+        run: go generate ./constants
 
       - name: Build Android arm64
         env:
           ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
         run: |
-          cd current-repo
           CC="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang"
           echo Using ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT
           GOOS=android GOARCH=arm64 CGO_ENABLED=1 CC="$CC" \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o ../build/SunPixel-cli_android_arm64 \
+            -o build/SunPixel-cli_android_arm64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -360,7 +354,7 @@ jobs:
   darwin-amd64:
     runs-on: ubuntu-latest
     needs: [prepare-release, send-start-notification]
-    if: always() && needs.prepare-release.result != 'skipped'
+    # 移除导致跳过的条件，始终执行
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -368,7 +362,6 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
-          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -386,15 +379,14 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: cd current-repo && go generate ./constants
+        run: go generate ./constants
 
       - name: Build macOS amd64
         run: |
-          cd current-repo
           GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o ../build/SunPixel-cli_darwin_amd64 \
+            -o build/SunPixel-cli_darwin_amd64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: Compute SHA512
@@ -411,7 +403,7 @@ jobs:
   darwin-arm64:
     runs-on: ubuntu-latest
     needs: [prepare-release, send-start-notification]
-    if: always() && needs.prepare-release.result != 'skipped'
+    # 移除导致跳过的条件，始终执行
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -419,7 +411,6 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
-          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -437,15 +428,14 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: cd current-repo && go generate ./constants
+        run: go generate ./constants
 
       - name: Build macOS arm64
         run: |
-          cd current-repo
           GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o ../build/SunPixel-cli_darwin_arm64 \
+            -o build/SunPixel-cli_darwin_arm64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: Compute SHA512
@@ -462,7 +452,7 @@ jobs:
   windows-amd64:
     runs-on: ubuntu-latest
     needs: [prepare-release, send-start-notification]
-    if: always() && needs.prepare-release.result != 'skipped'
+    # 移除导致跳过的条件，始终执行
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -470,7 +460,6 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
-          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -488,15 +477,14 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: cd current-repo && go generate ./constants
+        run: go generate ./constants
 
       - name: Build Windows amd64
         run: |
-          cd current-repo
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o ../build/SunPixel-cli_windows_amd64.exe \
+            -o build/SunPixel-cli_windows_amd64.exe \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -520,7 +508,7 @@ jobs:
   windows-arm64:
     runs-on: ubuntu-latest
     needs: [prepare-release, send-start-notification]
-    if: always() && needs.prepare-release.result != 'skipped'
+    # 移除导致跳过的条件，始终执行
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -528,7 +516,6 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
-          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -546,15 +533,14 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: cd current-repo && go generate ./constants
+        run: go generate ./constants
 
       - name: Build Windows arm64
         run: |
-          cd current-repo
           GOOS=windows GOARCH=arm64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o ../build/SunPixel-cli_windows_arm64.exe \
+            -o build/SunPixel-cli_windows_arm64.exe \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: Compute SHA512
@@ -571,7 +557,7 @@ jobs:
   push-to-release:
     runs-on: ubuntu-latest
     needs: [prepare-release, linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
-    if: github.event_name == 'push' && !cancelled() && !failure()
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v4
@@ -723,7 +709,7 @@ jobs:
 
   send-completion-notification:
     runs-on: ubuntu-latest
-    needs: [prepare-release, send-start-notification, push-to-release]
+    needs: [prepare-release, send-start-notification, linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
     if: always()
     steps:
       - name: Setup Python
@@ -741,7 +727,13 @@ jobs:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           JOB_STATUS_PREPARE: ${{ needs.prepare-release.result }}
-          JOB_STATUS_PUSH: ${{ needs.push-to-release.result }}
+          JOB_STATUS_LINUX_AMD64: ${{ needs.linux-amd64.result }}
+          JOB_STATUS_LINUX_ARM64: ${{ needs.linux-arm64.result }}
+          JOB_STATUS_ANDROID_ARM64: ${{ needs.android-arm64.result }}
+          JOB_STATUS_DARWIN_AMD64: ${{ needs.darwin-amd64.result }}
+          JOB_STATUS_DARWIN_ARM64: ${{ needs.darwin-arm64.result }}
+          JOB_STATUS_WINDOWS_AMD64: ${{ needs.windows-amd64.result }}
+          JOB_STATUS_WINDOWS_ARM64: ${{ needs.windows-arm64.result }}
         run: |
           python3 << 'EOF'
           import os
@@ -768,28 +760,59 @@ jobs:
           event_name = os.getenv('GITHUB_EVENT_NAME', '未知')
 
           # Job statuses
-          prepare_status = os.getenv('JOB_STATUS_PREPARE', 'unknown')
-          push_status = os.getenv('JOB_STATUS_PUSH', 'unknown')
+          jobs_cn = {
+              'prepare-release': os.getenv('JOB_STATUS_PREPARE', 'unknown'),
+              'linux-amd64': os.getenv('JOB_STATUS_LINUX_AMD64', 'unknown'),
+              'linux-arm64': os.getenv('JOB_STATUS_LINUX_ARM64', 'unknown'),
+              'android-arm64': os.getenv('JOB_STATUS_ANDROID_ARM64', 'unknown'),
+              'darwin-amd64': os.getenv('JOB_STATUS_DARWIN_AMD64', 'unknown'),
+              'darwin-arm64': os.getenv('JOB_STATUS_DARWIN_ARM64', 'unknown'),
+              'windows-amd64': os.getenv('JOB_STATUS_WINDOWS_AMD64', 'unknown'),
+              'windows-arm64': os.getenv('JOB_STATUS_WINDOWS_ARM64', 'unknown'),
+          }
+
+          # Job display names in Chinese
+          job_display_names = {
+              'prepare-release': '准备发布',
+              'linux-amd64': 'Linux AMD64',
+              'linux-arm64': 'Linux ARM64',
+              'android-arm64': 'Android ARM64',
+              'darwin-amd64': 'macOS AMD64',
+              'darwin-arm64': 'macOS ARM64',
+              'windows-amd64': 'Windows AMD64',
+              'windows-arm64': 'Windows ARM64',
+          }
 
           # Determine overall status
-          if push_status == 'success':
-              overall_status = '成功'
-              status_color = '#4CAF50'
-              status_icon = '✅'
-              status_message = '所有平台二进制文件已成功构建并推送到 Release 仓库'
-          elif push_status == 'skipped':
-              overall_status = '跳过'
-              status_color = '#9E9E9E'
-              status_icon = '⏭️'
-              status_message = '推送任务被跳过（可能不是 Release 提交）'
-          else:
+          has_failure = any(status == 'failure' for status in jobs_cn.values())
+          has_skipped = any(status == 'skipped' for status in jobs_cn.values())
+          
+          if has_failure:
               overall_status = '失败'
               status_color = '#f44336'
               status_icon = '❌'
-              status_message = '构建或推送过程中出现错误'
+              status_message = '构建过程中出现错误'
+          elif has_skipped:
+              overall_status = '部分跳过'
+              status_color = '#FF9800'
+              status_icon = '⚠️'
+              status_message = '部分构建任务被跳过'
+          else:
+              overall_status = '成功'
+              status_color = '#4CAF50'
+              status_icon = '✅'
+              status_message = '所有平台二进制文件已成功构建'
 
           # Create email content in Chinese
           subject = f"[{overall_status}] SunPixel CI/CD - 运行 #{run_number}"
+          
+          # Status display in Chinese
+          status_display_map = {
+              'success': '成功',
+              'failure': '失败',
+              'skipped': '跳过',
+              'unknown': '未知'
+          }
           
           html_content = f"""
           <html>
@@ -835,27 +858,22 @@ jobs:
                       <div class="section">
                           <h3>📦 任务状态</h3>
                           <table>
-                              <tr><th>准备发布</th><td class="status-{'success' if prepare_status == 'success' else 'failure' if prepare_status == 'failure' else 'skipped'}">{'成功' if prepare_status == 'success' else '失败' if prepare_status == 'failure' else '跳过'}</td></tr>
-                              <tr><th>推送至 Release</th><td class="status-{'success' if push_status == 'success' else 'failure' if push_status == 'failure' else 'skipped'}">{'成功' if push_status == 'success' else '失败' if push_status == 'failure' else '跳过'}</td></tr>
+                              <tr><th>任务</th><th>状态</th></tr>
+          """
+
+          for job_name, status in jobs_cn.items():
+              display_name = job_display_names.get(job_name, job_name)
+              status_class = f'status-{status}' if status in ['success', 'failure', 'skipped'] else 'status-unknown'
+              status_text = status_display_map.get(status, status)
+              html_content += f'<tr><td>{display_name}</td><td class="{status_class}">{status_text}</td></tr>\n'
+
+          html_content += f"""
                           </table>
-                      </div>
-                      <div class="section">
-                          <h3>📦 已构建平台</h3>
-                          <ul>
-                              <li>Linux AMD64</li>
-                              <li>Linux ARM64</li>
-                              <li>Android ARM64</li>
-                              <li>macOS AMD64</li>
-                              <li>macOS ARM64</li>
-                              <li>Windows AMD64</li>
-                              <li>Windows ARM64</li>
-                          </ul>
                       </div>
                       <div class="section">
                           <h3>🔗 相关链接</h3>
                           <p>
-                              <a href="https://github.com/{repository}/actions/runs/{run_id}">查看工作流运行详情</a><br>
-                              <a href="https://github.com/suibian-sun/SunPixel-Release/releases/tag/commit-{sha[:7]}">查看 Release</a>
+                              <a href="https://github.com/{repository}/actions/runs/{run_id}">查看工作流运行详情</a>
                           </p>
                       </div>
                   </div>
