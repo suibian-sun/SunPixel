@@ -9,7 +9,6 @@ on:
 jobs:
   prepare-release:
     runs-on: ubuntu-latest
-    if: startsWith(github.event.head_commit.message, 'Release')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,7 +18,6 @@ jobs:
           lfs: false
 
       - name: Check and create release repository if not exists
-        if: github.event_name == 'push'
         env:
           GH_TOKEN: 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
         run: |
@@ -34,7 +32,6 @@ jobs:
           fi
 
       - name: Initialize release repository if empty
-        if: github.event_name == 'push'
         env:
           GH_PAT: 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
         run: |
@@ -582,13 +579,13 @@ jobs:
           path: build/
           retention-days: 1
 
-  # 推送任务 - 无论构建成功与否都执行
+  # 推送任务 - 移除所有条件，总是执行
   push-to-release:
     runs-on: ubuntu-latest
-    # 只要满足基本条件就执行，无论构建任务成功与否
-    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
-    # 依赖所有构建任务，但不要求它们成功
+    # 移除所有条件，总是执行
     needs: [linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
+    # 如果任何一个依赖任务失败，这个任务仍然会执行
+    if: always()
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v4
@@ -600,6 +597,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          # 即使某些 artifacts 不存在，也继续执行
+        continue-on-error: true
           
       - name: Clone release repository
         run: |
