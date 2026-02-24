@@ -1,0 +1,20 @@
+#地毯
+
+{
+  "(20, 21, 25)": ["minecraft:black_carpet", 0],
+  "(233, 236, 239)": ["minecraft:white_carpet", 0],
+  "(160, 39, 34)": ["minecraft:red_carpet", 0],
+  "(103, 117, 53)": ["minecraft:green_carpet", 0],
+  "(53, 57, 157)": ["minecraft:blue_carpet", 0],
+  "(247, 233, 163)": ["minecraft:yellow_carpet", 0],
+  "(240, 118, 19)": ["minecraft:orange_carpet", 0],
+  "(121, 42, 172)": ["minecraft:purple_carpet", 0],
+  "(114, 71, 40)": ["minecraft:brown_carpet", 0],
+  "(62, 68, 71)": ["minecraft:gray_carpet", 0],
+  "(142, 142, 134)": ["minecraft:light_gray_carpet", 0],
+  "(21, 137, 145)": ["minecraft:cyan_carpet", 0],
+  "(189, 69, 180)": ["minecraft:magenta_carpet", 0],
+  "(84, 109, 27)": ["minecraft:lime_carpet", 0],
+  "(58, 175, 217)": ["minecraft:light_blue_carpet", 0],
+  "(216, 129, 152)": ["minecraft:pink_carpet", 0]
+}

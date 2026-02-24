@@ -1,0 +1,20 @@
+#木材系列
+
+{
+  "(59, 37, 16)": ["minecraft:oak_wood", 0],
+  "(88, 68, 39)": ["minecraft:spruce_wood", 0],
+  "(169, 138, 86)": ["minecraft:birch_wood", 0],
+  "(106, 80, 49)": ["minecraft:jungle_wood", 0],
+  "(45, 23, 15)": ["minecraft:dark_oak_wood", 0],
+  "(173, 94, 93)": ["minecraft:acacia_wood", 0],
+  "(58, 43, 36)": ["minecraft:mangrove_wood", 0],
+  "(55, 41, 64)": ["minecraft:crimson_hyphae", 0],
+  "(44, 66, 82)": ["minecraft:warped_hyphae", 0],
+  "(216, 203, 141)": ["minecraft:stripped_oak_wood", 0],
+  "(114, 88, 53)": ["minecraft:stripped_spruce_wood", 0],
+  "(196, 176, 118)": ["minecraft:stripped_birch_wood", 0],
+  "(167, 133, 81)": ["minecraft:stripped_jungle_wood", 0],
+  "(65, 50, 30)": ["minecraft:stripped_dark_oak_wood", 0],
+  "(169, 91, 51)": ["minecraft:stripped_acacia_wood", 0],
+  "(193, 103, 107)": ["minecraft:stripped_mangrove_wood", 0]
+}

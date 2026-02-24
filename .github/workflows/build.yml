@@ -1,0 +1,1106 @@
+name: Build on Push
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.head_commit.message, 'Release')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          lfs: false
+
+      - name: Check and create release repository if not exists
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          # Check if repository exists
+          if gh repo view suibian-sun/SunPixel-Release >/dev/null 2>&1; then
+            echo "Repository suibian-sun/SunPixel-Release already exists"
+          else
+            echo "Repository suibian-sun/SunPixel-Release does not exist, creating..."
+            gh repo create suibian-sun/SunPixel-Release --public --description "SunPixel Release Repository"
+            echo "Repository created successfully"
+          fi
+
+      - name: Initialize release repository if empty
+        if: github.event_name == 'push'
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          git clone https://${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git release-repo
+          cd release-repo
+          if git rev-parse HEAD >/dev/null 2>&1; then
+            echo "Release repo already initialized"
+          else
+            echo "Initializing empty release repo"
+            git checkout -b main
+            echo "# SunPixel Release" > README.md
+            git add README.md
+            git -c user.name="sunpixel-bot" -c user.email="bot@users.noreply.github.com" commit -m "chore: initial commit"
+            git push -u origin main
+          fi
+
+      - name: Copy cli and web directories to release-repo
+        if: github.event_name == 'push'
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          cd release-repo
+          # Copy cli directory
+          if [ -d "../cli" ]; then
+            rm -rf cli
+            cp -r ../cli cli
+            echo "Copied cli directory"
+          fi
+          # Copy web directory
+          if [ -d "../web" ]; then
+            rm -rf web
+            cp -r ../web web
+            echo "Copied web directory"
+          fi
+          # Commit and push changes
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git add cli web
+            git -c user.name="sunpixel-bot" -c user.email="bot@users.noreply.github.com" commit -m "chore: copy cli and web directories from main repo"
+            git push
+            echo "Changes pushed to release-repo"
+          fi
+
+      - name: Create GitHub Release in suibian-sun/SunPixel-Release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          tag="commit-${GITHUB_SHA}"
+          if gh release view "$tag" --repo suibian-sun/SunPixel-Release >/dev/null 2>&1; then
+            echo "Release $tag already exists, skipping create"
+          else
+            commit_msg=$(git log -1 --pretty=%B)
+            {
+              printf 'Automated release from commit %s on ref %s\n' "$GITHUB_SHA" "$GITHUB_REF"
+              echo
+              echo "Commit message:"
+              printf '%s\n' "$commit_msg"
+            } > release_notes.txt
+            gh release create "$tag" \
+              --repo suibian-sun/SunPixel-Release \
+              --title "SunPixel GO CLI $tag" \
+              --notes-file release_notes.txt
+          fi
+
+  linux-amd64:
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          lfs: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: true
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install garble
+        run: go install mvdan.cc/garble@latest
+
+      - name: Prepare build directory
+        run: mkdir -p build
+
+      - name: Configure GOPRIVATE and fetch modules
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          go env -w GOPRIVATE=github.com/suibian-sun/*
+          mkdir -p modules
+          echo "Checking local replace modules..."
+          if [ ! -f modules/WaterStructure/go.mod ]; then
+            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
+          else
+            echo "Found modules/WaterStructure"
+          fi
+          if [ ! -f modules/blocks/go.mod ]; then
+            echo "Cloning suibian-sun/blocks into modules/blocks"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
+          else
+            echo "Found modules/blocks"
+          fi
+          if [ ! -f modules/g79client/go.mod ]; then
+            echo "Cloning suibian-sun/g79client into modules/g79client"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
+          else
+            echo "Found modules/g79client"
+          fi
+          if [ ! -f modules/FunShuttler/go.mod ]; then
+            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
+          else
+            echo "Found modules/FunShuttler"
+          fi
+
+      - name: Generate constants
+        run: go generate ./constants
+
+      - name: Build Linux amd64
+        run: |
+          GOOS=linux GOARCH=amd64 \
+          garble -literals -tiny -seed=random build \
+            -ldflags "-s -w -checklinkname=0" \
+            -o build/SunPixel-cli_linux_amd64 \
+            -v github.com/suibian-sun/SunPixel/go/cmd/main
+
+      - name: UPX compress artifact
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          version: latest
+          files: build/SunPixel-cli_linux_amd64
+          args: -fq
+
+      - name: Compute SHA512
+        run: |
+          sha512sum build/SunPixel-cli_linux_amd64 | awk '{print $1}' > build/SunPixel-cli_linux_amd64.sha
+
+      - name: Upload asset to release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          tag="commit-${GITHUB_SHA}"
+          gh release upload "$tag" build/SunPixel-cli_linux_amd64 --repo suibian-sun/SunPixel-Release --clobber
+          gh release upload "$tag" build/SunPixel-cli_linux_amd64.sha --repo suibian-sun/SunPixel-Release --clobber
+
+  linux-arm64:
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          lfs: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: true
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install garble
+        run: go install mvdan.cc/garble@latest
+
+      - name: Prepare build directory
+        run: mkdir -p build
+
+      - name: Configure GOPRIVATE and fetch modules
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          go env -w GOPRIVATE=github.com/suibian-sun/*
+          mkdir -p modules
+          echo "Checking local replace modules..."
+          if [ ! -f modules/WaterStructure/go.mod ]; then
+            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
+          else
+            echo "Found modules/WaterStructure"
+          fi
+          if [ ! -f modules/blocks/go.mod ]; then
+            echo "Cloning suibian-sun/blocks into modules/blocks"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
+          else
+            echo "Found modules/blocks"
+          fi
+          if [ ! -f modules/g79client/go.mod ]; then
+            echo "Cloning suibian-sun/g79client into modules/g79client"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
+          else
+            echo "Found modules/g79client"
+          fi
+          if [ ! -f modules/FunShuttler/go.mod ]; then
+            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
+          else
+            echo "Found modules/FunShuttler"
+          fi
+
+      - name: Generate constants
+        run: go generate ./constants
+
+      - name: Build Linux arm64
+        run: |
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 \
+          garble -literals -tiny -seed=random build \
+            -ldflags "-s -w -checklinkname=0" \
+            -o build/SunPixel-cli_linux_arm64 \
+            -v github.com/suibian-sun/SunPixel/go/cmd/main
+
+      - name: UPX compress artifact
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          version: latest
+          files: build/SunPixel-cli_linux_arm64
+          args: -fq
+
+      - name: Compute SHA512
+        run: |
+          sha512sum build/SunPixel-cli_linux_arm64 | awk '{print $1}' > build/SunPixel-cli_linux_arm64.sha
+
+      - name: Upload asset to release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          tag="commit-${GITHUB_SHA}"
+          gh release upload "$tag" build/SunPixel-cli_linux_arm64 --repo suibian-sun/SunPixel-Release --clobber
+          gh release upload "$tag" build/SunPixel-cli_linux_arm64.sha --repo suibian-sun/SunPixel-Release --clobber
+
+  android-arm64:
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          lfs: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: true
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install garble
+        run: go install mvdan.cc/garble@latest
+
+      - name: Setup Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Prepare build directory
+        run: mkdir -p build
+
+      - name: Configure GOPRIVATE and fetch modules
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          go env -w GOPRIVATE=github.com/suibian-sun/*
+          mkdir -p modules
+          echo "Checking local replace modules..."
+          if [ ! -f modules/WaterStructure/go.mod ]; then
+            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
+          else
+            echo "Found modules/WaterStructure"
+          fi
+          if [ ! -f modules/blocks/go.mod ]; then
+            echo "Cloning suibian-sun/blocks into modules/blocks"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
+          else
+            echo "Found modules/blocks"
+          fi
+          if [ ! -f modules/g79client/go.mod ]; then
+            echo "Cloning suibian-sun/g79client into modules/g79client"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
+          else
+            echo "Found modules/g79client"
+          fi
+          if [ ! -f modules/FunShuttler/go.mod ]; then
+            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
+          else
+            echo "Found modules/FunShuttler"
+          fi
+
+      - name: Generate constants
+        run: go generate ./constants
+
+      - name: Build Android arm64
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          CC="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang"
+          echo Using ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT
+          GOOS=android GOARCH=arm64 CGO_ENABLED=1 CC="$CC" \
+          garble -literals -tiny -seed=random build \
+            -ldflags "-s -w -checklinkname=0" \
+            -o build/SunPixel-cli_android_arm64 \
+            -v github.com/suibian-sun/SunPixel/go/cmd/main
+
+      - name: UPX compress artifact
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          version: latest
+          files: build/SunPixel-cli_android_arm64
+          args: -fq
+
+      - name: Compute SHA512
+        run: |
+          sha512sum build/SunPixel-cli_android_arm64 | awk '{print $1}' > build/SunPixel-cli_android_arm64.sha
+
+      - name: Upload asset to release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          tag="commit-${GITHUB_SHA}"
+          gh release upload "$tag" build/SunPixel-cli_android_arm64 --repo suibian-sun/SunPixel-Release --clobber
+          gh release upload "$tag" build/SunPixel-cli_android_arm64.sha --repo suibian-sun/SunPixel-Release --clobber
+
+  darwin-amd64:
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          lfs: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: true
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install garble
+        run: go install mvdan.cc/garble@latest
+
+      - name: Prepare build directory
+        run: mkdir -p build
+
+      - name: Configure GOPRIVATE and fetch modules
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          go env -w GOPRIVATE=github.com/suibian-sun/*
+          mkdir -p modules
+          echo "Checking local replace modules..."
+          if [ ! -f modules/WaterStructure/go.mod ]; then
+            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
+          else
+            echo "Found modules/WaterStructure"
+          fi
+          if [ ! -f modules/blocks/go.mod ]; then
+            echo "Cloning suibian-sun/blocks into modules/blocks"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
+          else
+            echo "Found modules/blocks"
+          fi
+          if [ ! -f modules/g79client/go.mod ]; then
+            echo "Cloning suibian-sun/g79client into modules/g79client"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
+          else
+            echo "Found modules/g79client"
+          fi
+          if [ ! -f modules/FunShuttler/go.mod ]; then
+            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
+          else
+            echo "Found modules/FunShuttler"
+          fi
+
+      - name: Generate constants
+        run: go generate ./constants
+
+      - name: Build macOS amd64
+        run: |
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 \
+          garble -literals -tiny -seed=random build \
+            -ldflags "-s -w -checklinkname=0" \
+            -o build/SunPixel-cli_darwin_amd64 \
+            -v github.com/suibian-sun/SunPixel/go/cmd/main
+
+      - name: Compute SHA512
+        run: |
+          sha512sum build/SunPixel-cli_darwin_amd64 | awk '{print $1}' > build/SunPixel-cli_darwin_amd64.sha
+
+      - name: Upload asset to release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          tag="commit-${GITHUB_SHA}"
+          gh release upload "$tag" build/SunPixel-cli_darwin_amd64 --repo suibian-sun/SunPixel-Release --clobber
+          gh release upload "$tag" build/SunPixel-cli_darwin_amd64.sha --repo suibian-sun/SunPixel-Release --clobber
+
+  darwin-arm64:
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          lfs: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: true
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install garble
+        run: go install mvdan.cc/garble@latest
+
+      - name: Prepare build directory
+        run: mkdir -p build
+
+      - name: Configure GOPRIVATE and fetch modules
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          go env -w GOPRIVATE=github.com/suibian-sun/*
+          mkdir -p modules
+          echo "Checking local replace modules..."
+          if [ ! -f modules/WaterStructure/go.mod ]; then
+            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
+          else
+            echo "Found modules/WaterStructure"
+          fi
+          if [ ! -f modules/blocks/go.mod ]; then
+            echo "Cloning suibian-sun/blocks into modules/blocks"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
+          else
+            echo "Found modules/blocks"
+          fi
+          if [ ! -f modules/g79client/go.mod ]; then
+            echo "Cloning suibian-sun/g79client into modules/g79client"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
+          else
+            echo "Found modules/g79client"
+          fi
+          if [ ! -f modules/FunShuttler/go.mod ]; then
+            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
+          else
+            echo "Found modules/FunShuttler"
+          fi
+
+      - name: Generate constants
+        run: go generate ./constants
+
+      - name: Build macOS arm64
+        run: |
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 \
+          garble -literals -tiny -seed=random build \
+            -ldflags "-s -w -checklinkname=0" \
+            -o build/SunPixel-cli_darwin_arm64 \
+            -v github.com/suibian-sun/SunPixel/go/cmd/main
+
+      - name: Compute SHA512
+        run: |
+          sha512sum build/SunPixel-cli_darwin_arm64 | awk '{print $1}' > build/SunPixel-cli_darwin_arm64.sha
+
+      - name: Upload asset to release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          tag="commit-${GITHUB_SHA}"
+          gh release upload "$tag" build/SunPixel-cli_darwin_arm64 --repo suibian-sun/SunPixel-Release --clobber
+          gh release upload "$tag" build/SunPixel-cli_darwin_arm64.sha --repo suibian-sun/SunPixel-Release --clobber
+
+  windows-amd64:
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          lfs: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: true
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install garble
+        run: go install mvdan.cc/garble@latest
+
+      - name: Prepare build directory
+        run: mkdir -p build
+
+      - name: Configure GOPRIVATE and fetch modules
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          go env -w GOPRIVATE=github.com/suibian-sun/*
+          mkdir -p modules
+          echo "Checking local replace modules..."
+          if [ ! -f modules/WaterStructure/go.mod ]; then
+            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
+          else
+            echo "Found modules/WaterStructure"
+          fi
+          if [ ! -f modules/blocks/go.mod ]; then
+            echo "Cloning suibian-sun/blocks into modules/blocks"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
+          else
+            echo "Found modules/blocks"
+          fi
+          if [ ! -f modules/g79client/go.mod ]; then
+            echo "Cloning suibian-sun/g79client into modules/g79client"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
+          else
+            echo "Found modules/g79client"
+          fi
+          if [ ! -f modules/FunShuttler/go.mod ]; then
+            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
+          else
+            echo "Found modules/FunShuttler"
+          fi
+
+      - name: Generate constants
+        run: go generate ./constants
+
+      - name: Build Windows amd64
+        run: |
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
+          garble -literals -tiny -seed=random build \
+            -ldflags "-s -w -checklinkname=0" \
+            -o build/SunPixel-cli_windows_amd64.exe \
+            -v github.com/suibian-sun/SunPixel/go/cmd/main
+
+      - name: UPX compress artifact
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          version: latest
+          files: build/SunPixel-cli_windows_amd64.exe
+          args: -fq
+
+      - name: Compute SHA512
+        run: |
+          sha512sum build/SunPixel-cli_windows_amd64.exe | awk '{print $1}' > build/SunPixel-cli_windows_amd64.exe.sha
+
+      - name: Upload asset to release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          tag="commit-${GITHUB_SHA}"
+          gh release upload "$tag" build/SunPixel-cli_windows_amd64.exe --repo suibian-sun/SunPixel-Release --clobber
+          gh release upload "$tag" build/SunPixel-cli_windows_amd64.exe.sha --repo suibian-sun/SunPixel-Release --clobber
+
+  windows-arm64:
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          lfs: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: true
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install garble
+        run: go install mvdan.cc/garble@latest
+
+      - name: Prepare build directory
+        run: mkdir -p build
+
+      - name: Configure GOPRIVATE and fetch modules
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          go env -w GOPRIVATE=github.com/suibian-sun/*
+          mkdir -p modules
+          echo "Checking local replace modules..."
+          if [ ! -f modules/WaterStructure/go.mod ]; then
+            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
+          else
+            echo "Found modules/WaterStructure"
+          fi
+          if [ ! -f modules/blocks/go.mod ]; then
+            echo "Cloning suibian-sun/blocks into modules/blocks"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
+          else
+            echo "Found modules/blocks"
+          fi
+          if [ ! -f modules/g79client/go.mod ]; then
+            echo "Cloning suibian-sun/g79client into modules/g79client"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
+          else
+            echo "Found modules/g79client"
+          fi
+          if [ ! -f modules/FunShuttler/go.mod ]; then
+            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
+            if [ -z "${GH_PAT}" ]; then
+              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
+              exit 1
+            fi
+            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
+          else
+            echo "Found modules/FunShuttler"
+          fi
+
+      - name: Generate constants
+        run: go generate ./constants
+
+      - name: Build Windows arm64
+        run: |
+          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 \
+          garble -literals -tiny -seed=random build \
+            -ldflags "-s -w -checklinkname=0" \
+            -o build/SunPixel-cli_windows_arm64.exe \
+            -v github.com/suibian-sun/SunPixel/go/cmd/main
+
+      - name: Compute SHA512
+        run: |
+          sha512sum build/SunPixel-cli_windows_arm64.exe | awk '{print $1}' > build/SunPixel-cli_windows_arm64.exe.sha
+
+      - name: Upload asset to release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          tag="commit-${GITHUB_SHA}"
+          gh release upload "$tag" build/SunPixel-cli_windows_arm64.exe --repo suibian-sun/SunPixel-Release --clobber
+          gh release upload "$tag" build/SunPixel-cli_windows_arm64.exe.sha --repo suibian-sun/SunPixel-Release --clobber
+
+send-notification:
+    runs-on: ubuntu-latest
+    needs: [prepare-release, linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
+    if: always()
+    steps:
+      - name: Send email notification
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          MAIL_SERVER: ${{ secrets.MAIL_SERVER }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          JOB_STATUS_PREPARE: ${{ needs.prepare-release.result }}
+          JOB_STATUS_LINUX_AMD64: ${{ needs.linux-amd64.result }}
+          JOB_STATUS_LINUX_ARM64: ${{ needs.linux-arm64.result }}
+          JOB_STATUS_ANDROID_ARM64: ${{ needs.android-arm64.result }}
+          JOB_STATUS_DARWIN_AMD64: ${{ needs.darwin-amd64.result }}
+          JOB_STATUS_DARWIN_ARM64: ${{ needs.darwin-arm64.result }}
+          JOB_STATUS_WINDOWS_AMD64: ${{ needs.windows-amd64.result }}
+          JOB_STATUS_WINDOWS_ARM64: ${{ needs.windows-arm64.result }}
+        run: |
+          #!/usr/bin/env python3
+          import os
+          import subprocess
+          import smtplib
+          from email.mime.text import MIMEText
+          from email.mime.multipart import MIMEMultipart
+          from datetime import datetime
+
+          # Mail configuration
+          MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.163.com')
+          MAIL_PORT = int(os.getenv('MAIL_PORT', '465'))
+          MAIL_USERNAME = os.getenv('MAIL_USERNAME', 'ctigzs@163.com')
+          MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', '')
+          MAIL_FROM_NAME = os.getenv('MAIL_FROM_NAME', 'SunBot')
+          MAIL_TO = os.getenv('MAIL_TO', '3214837362@qq.com')
+          GH_TOKEN = os.getenv('GH_TOKEN', '')
+
+          # Workflow information
+          workflow = os.getenv('GITHUB_WORKFLOW', '未知')
+          repository = os.getenv('GITHUB_REPOSITORY', '未知')
+          sha = os.getenv('GITHUB_SHA', '未知')
+          ref = os.getenv('GITHUB_REF', '未知')
+          run_id = os.getenv('GITHUB_RUN_ID', '未知')
+          run_number = os.getenv('GITHUB_RUN_NUMBER', '未知')
+          event_name = os.getenv('GITHUB_EVENT_NAME', '未知')
+
+          # Job statuses with Chinese names
+          jobs_cn = {
+              'prepare-release': os.getenv('JOB_STATUS_PREPARE', 'unknown'),
+              'linux-amd64': os.getenv('JOB_STATUS_LINUX_AMD64', 'unknown'),
+              'linux-arm64': os.getenv('JOB_STATUS_LINUX_ARM64', 'unknown'),
+              'android-arm64': os.getenv('JOB_STATUS_ANDROID_ARM64', 'unknown'),
+              'darwin-amd64': os.getenv('JOB_STATUS_DARWIN_AMD64', 'unknown'),
+              'darwin-arm64': os.getenv('JOB_STATUS_DARWIN_ARM64', 'unknown'),
+              'windows-amd64': os.getenv('JOB_STATUS_WINDOWS_AMD64', 'unknown'),
+              'windows-arm64': os.getenv('JOB_STATUS_WINDOWS_ARM64', 'unknown'),
+          }
+
+          # Job display names in Chinese
+          job_display_names = {
+              'prepare-release': '准备发布',
+              'linux-amd64': 'Linux AMD64',
+              'linux-arm64': 'Linux ARM64',
+              'android-arm64': 'Android ARM64',
+              'darwin-amd64': 'macOS AMD64',
+              'darwin-arm64': 'macOS ARM64',
+              'windows-amd64': 'Windows AMD64',
+              'windows-arm64': 'Windows ARM64',
+          }
+
+          # Determine overall status
+          has_failure = any(status == 'failure' for status in jobs_cn.values())
+          has_success = any(status == 'success' for status in jobs_cn.values())
+          overall_status = '失败' if has_failure else '成功'
+
+          # Function to get failed job logs
+          def get_failed_job_logs(run_id, repository, gh_token):
+              failed_logs = {}
+              if not gh_token:
+                  return failed_logs
+              
+              try:
+                  # Get all jobs for this run
+                  cmd = [
+                      'gh', 'api',
+                      f'/repos/{repository}/actions/runs/{run_id}/jobs',
+                      '-H', f'Accept: application/vnd.github.v3+json'
+                  ]
+                  result = subprocess.run(cmd, capture_output=True, text=True, env={'GH_TOKEN': gh_token})
+                  
+                  if result.returncode == 0:
+                      import json
+                      data = json.loads(result.stdout)
+                      jobs = data.get('jobs', [])
+                      
+                      for job in jobs:
+                          if job.get('conclusion') == 'failure':
+                              job_name = job.get('name', '')
+                              job_id = job.get('id', '')
+                              html_url = job.get('html_url', '')
+                              
+                              # Get job logs
+                              log_cmd = [
+                                  'gh', 'api',
+                                  f'/repos/{repository}/actions/jobs/{job_id}/logs',
+                                  '--accept', 'application/vnd.github.v3.raw'
+                              ]
+                              log_result = subprocess.run(log_cmd, capture_output=True, text=True, env={'GH_TOKEN': gh_token})
+                              
+                              if log_result.returncode == 0:
+                                  # Extract error lines (last 50 lines)
+                                  log_lines = log_result.stdout.split('\n')
+                                  error_lines = [line for line in log_lines if 'error' in line.lower() or 'fail' in line.lower() or 'exception' in line.lower()]
+                                  if error_lines:
+                                      failed_logs[job_name] = '\n'.join(error_lines[-50:])
+                                  else:
+                                      failed_logs[job_name] = log_result.stdout[-2000:]  # Last 2000 chars
+                              else:
+                                  failed_logs[job_name] = f"无法获取日志: {html_url}"
+                  else:
+                      print(f"Failed to get jobs: {result.stderr}")
+              except Exception as e:
+                  print(f"Error fetching job logs: {str(e)}")
+              
+              return failed_logs
+
+          # Get failed job logs if there are failures
+          failed_logs = {}
+          if has_failure:
+              failed_logs = get_failed_job_logs(run_id, repository, GH_TOKEN)
+
+          # Create email content in Chinese
+          subject = f"[{overall_status}] SunPixel CI/CD - 运行 #{run_number}"
+          
+          # Status display in Chinese
+          status_display_map = {
+              'success': '成功',
+              'failure': '失败',
+              'skipped': '跳过',
+              'unknown': '未知'
+          }
+          
+          html_content = f"""
+          <html>
+          <head>
+              <meta charset="UTF-8">
+              <style>
+                  body {{ font-family: "Microsoft YaHei", Arial, sans-serif; line-height: 1.6; color: #333; }}
+                  .container {{ max-width: 650px; margin: 0 auto; padding: 20px; }}
+                  .header {{ background-color: {'#f44336' if overall_status == '失败' else '#4CAF50'};
+                             color: white; padding: 15px; border-radius: 5px; text-align: center; }}
+                  .content {{ background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin-top: 20px; }}
+                  .section {{ margin-bottom: 20px; }}
+                  .section h3 {{ color: #666; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
+                  table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+                  th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
+                  th {{ background-color: #f0f0f0; }}
+                  .status-success {{ color: #4CAF50; font-weight: bold; }}
+                  .status-failure {{ color: #f44336; font-weight: bold; }}
+                  .status-skipped {{ color: #9E9E9E; }}
+                  .status-unknown {{ color: #FF9800; }}
+                  .error-box {{ background-color: #ffebee; border-left: 4px solid #f44336; padding: 15px; margin-top: 10px; }}
+                  .error-title {{ color: #c62828; font-weight: bold; margin-bottom: 10px; }}
+                  .error-content {{ font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; }}
+                  .footer {{ margin-top: 20px; padding: 10px; text-align: center; color: #999; font-size: 12px; }}
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <div class="header">
+                      <h2>{'❌ 工作流执行失败' if overall_status == '失败' else '✅ 工作流执行成功'}</h2>
+                  </div>
+                  <div class="content">
+                      <div class="section">
+                          <h3>📋 工作流信息</h3>
+                          <table>
+                              <tr><th>工作流名称</th><td>{workflow}</td></tr>
+                              <tr><th>仓库</th><td>{repository}</td></tr>
+                              <tr><th>运行编号</th><td>#{run_number}</td></tr>
+                              <tr><th>运行 ID</th><td>{run_id}</td></tr>
+                              <tr><th>触发事件</th><td>{event_name}</td></tr>
+                              <tr><th>分支/引用</th><td>{ref}</td></tr>
+                              <tr><th>提交 SHA</th><td><code>{sha[:7]}</code></td></tr>
+                              <tr><th>时间戳</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</td></tr>
+                          </table>
+                      </div>
+                      <div class="section">
+                          <h3>📦 任务状态</h3>
+                          <table>
+                              <tr><th>任务</th><th>状态</th></tr>
+          """
+
+          for job_name, status in jobs_cn.items():
+              display_name = job_display_names.get(job_name, job_name)
+              status_class = f'status-{status}' if status in ['success', 'failure', 'skipped'] else 'status-unknown'
+              status_text = status_display_map.get(status, status)
+              html_content += f'<tr><td>{display_name}</td><td class="{status_class}">{status_text}</td></tr>\n'
+
+          html_content += f"""
+                          </table>
+                      </div>
+          """
+
+          # Add error details if there are failures
+          if failed_logs:
+              html_content += '<div class="section">\n<h3>❌ 错误详情</h3>\n'
+              for job_name, error_log in failed_logs.items():
+                  display_name = job_display_names.get(job_name, job_name)
+                  escaped_error = error_log.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+                  html_content += f"""
+                  <div class="error-box">
+                      <div class="error-title">{display_name}</div>
+                      <div class="error-content">{escaped_error}</div>
+                  </div>
+                  """
+              html_content += '</div>\n'
+
+          html_content += f"""
+                      <div class="section">
+                          <h3>🔗 相关链接</h3>
+                          <p>
+                              <a href="https://github.com/{repository}/actions/runs/{run_id}">查看工作流运行详情</a>
+                          </p>
+                      </div>
+                  </div>
+                  <div class="footer">
+                      <p>此邮件由 {MAIL_FROM_NAME} 自动发送</p>
+                  </div>
+              </div>
+          </body>
+          </html>
+          """
+
+          # Create email message
+          msg = MIMEMultipart('alternative')
+          msg['Subject'] = subject
+          msg['From'] = f"{MAIL_FROM_NAME} <{MAIL_USERNAME}>"
+          msg['To'] = MAIL_TO
+
+          # Attach HTML content
+          html_part = MIMEText(html_content, 'html', 'utf-8')
+          msg.attach(html_part)
+
+          # Send email
+          try:
+              with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
+                  server.login(MAIL_USERNAME, MAIL_PASSWORD)
+                  server.send_message(msg)
+              print(f"邮件已成功发送至 {MAIL_TO}")
+          except Exception as e:
+              print(f"发送邮件失败: {str(e)}")
+              exit(1)

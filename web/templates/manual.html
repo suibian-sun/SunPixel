@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手动搭建 - SunPixel</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --primary-dark: #2980b9;
+            --secondary-color: #2ecc71;
+            --dark-bg: #1a1a1a;
+            --light-bg: #f8f9fa;
+            --text-color: #333;
+            --text-light: #666;
+            --border-color: #ddd;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--light-bg);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+        
+        /* 导航栏 */
+        .navbar {
+            background: white;
+            box-shadow: var(--shadow);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo i {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        
+        .logo h1 {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 500;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover,
+        .nav-links a.active {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-info span {
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        /* 主要内容 */
+        .main-content {
+            max-width: 1200px;
+            margin: 80px auto 20px;
+            padding: 0 20px;
+        }
+        
+        .page-header {
+            margin-bottom: 30px;
+        }
+        
+        .page-header h2 {
+            font-size: 28px;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .card-header {
+            font-size: 22px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .card-header i {
+            margin-right: 10px;
+        }
+        
+        /* 指南样式 */
+        .guide-section {
+            margin-bottom: 30px;
+        }
+        
+        .guide-item {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .guide-item h4 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .guide-item ol,
+        .guide-item ul {
+            padding-left: 20px;
+            margin: 15px 0;
+        }
+        
+        .guide-item li {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            text-decoration: none;
+            text-align: center;
+            min-width: 120px;
+        }
+        
+        .btn:hover {
+            background: var(--primary-dark);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-sun"></i>
+                <h1>SunPixel</h1>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/"><i class="fas fa-home"></i> 控制台</a></li>
+                <li><a href="/history"><i class="fas fa-history"></i> 历史记录</a></li>
+                <li><a href="/market"><i class="fas fa-store"></i> 市场</a></li>
+                <li><a href="/changelog"><i class="fas fa-clipboard-list"></i> 更新记录</a></li>
+                <li><a href="/manual" class="active"><i class="fas fa-tools"></i> 手动搭建</a></li>
+            </ul>
+            <div class="user-info">
+                <span id="username">游客</span>
+                <button class="btn btn-outline btn-sm" id="loginBtn">登录</button>
+                <button class="btn btn-outline btn-sm" id="logoutBtn" style="display: none;">登出</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <div class="main-content">
+        <div class="page-header">
+            <h2><i class="fas fa-tools"></i> 手动搭建指南</h2>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-book me-2"></i> 搭建说明
+            </div>
+            
+            <div class="guide-section">
+                <div class="guide-item">
+                    <h4><i class="fas fa-step-forward"></i> 第一步：准备材料</h4>
+                    <p>根据转换结果准备相应颜色的方块，如羊毛、混凝土等。</p>
+                    <ul>
+                        <li>确保你有足够的方块材料</li>
+                        <li>准备搭建所需的工具</li>
+                        <li>选择合适的搭建位置</li>
+                    </ul>
+                </div>
+                
+                <div class="guide-item">
+                    <h4><i class="fas fa-ruler"></i> 第二步：确定尺寸</h4>
+                    <p>根据转换时设定的尺寸在游戏内规划搭建区域。</p>
+                    <ul>
+                        <li>长度：对应转换时设置的宽度</li>
+                        <li>宽度：对应转换时设置的高度</li>
+                        <li>高度：通常为1层（可按需增加层数）</li>
+                    </ul>
+                </div>
+                
+                <div class="guide-item">
+                    <h4><i class="fas fa-map"></i> 第三步：按图搭建</h4>
+                    <p>从左上角开始，按照转换结果逐行逐列放置方块。</p>
+                    <ol>
+                        <li>从左到右，从上到下逐行搭建</li>
+                        <li>对照转换结果中的方块类型和位置</li>
+                        <li>完成一行后继续下一行，直到整个图案完成</li>
+                    </ol>
+                </div>
+                
+                <div class="guide-item">
+                    <h4><i class="fas fa-palette"></i> 方块颜色参考</h4>
+                    <p>以下是一些常用方块的颜色对照：</p>
+                    <ul>
+                        <li><strong>白色：</strong> 白色羊毛/混凝土</li>
+                        <li><strong>橙色：</strong> 橙色羊毛/混凝土</li>
+                        <li><strong>品红色：</strong> 品红色羊毛/混凝土</li>
+                        <li><strong>淡蓝色：</strong> 淡蓝色羊毛/混凝土</li>
+                        <li><strong>黄色：</strong> 黄色羊毛/混凝土</li>
+                        <li><strong>黄绿色：</strong> 黄绿色羊毛/混凝土</li>
+                        <li><strong>粉红色：</strong> 粉红色羊毛/混凝土</li>
+                        <li><strong>灰色：</strong> 灰色羊毛/混凝土</li>
+                        <li><strong>淡灰色：</strong> 淡灰色羊毛/混凝土</li>
+                        <li><strong>青色：</strong> 青色羊毛/混凝土</li>
+                        <li><strong>紫色：</strong> 紫色羊毛/混凝土</li>
+                        <li><strong>蓝色：</strong> 蓝色羊毛/混凝土</li>
+                        <li><strong>棕色：</strong> 棕色羊毛/混凝土</li>
+                        <li><strong>绿色：</strong> 绿色羊毛/混凝土</li>
+                        <li><strong>红色：</strong> 红色羊毛/混凝土</li>
+                        <li><strong>黑色：</strong> 黑色羊毛/混凝土</li>
+                    </ul>
+                </div>
+                
+                <div class="guide-item">
+                    <h4><i class="fas fa-lightbulb"></i> 小贴士</h4>
+                    <ul>
+                        <li>可以使用F3+G快捷键在游戏中显示网格，辅助对齐</li>
+                        <li>建议先用较低成本的方块（如木材）搭建框架</li>
+                        <li>对于大型项目，可以分区域逐步完成</li>
+                        <li>搭建完成后记得保存建筑截图留念</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 检查登录状态
+        function checkLoginStatus() {
+            const user = localStorage.getItem('currentUser');
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    document.getElementById('username').textContent = userData.username;
+                    // 隐藏登录按钮，显示登出按钮
+                    document.getElementById('loginBtn').style.display = 'none';
+                    document.getElementById('logoutBtn').style.display = 'inline-block';
+                } catch (e) {
+                    console.error('解析用户信息失败:', e);
+                }
+            } else {
+                document.getElementById('username').textContent = '游客';
+                // 显示登录按钮，隐藏登出按钮
+                document.getElementById('loginBtn').style.display = 'inline-block';
+                document.getElementById('logoutBtn').style.display = 'none';
+            }
+        }
+
+        // 显示登录模态框
+        function showLoginModal() {
+            // 创建临时模态框元素（简化版）
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 10px; max-width: 400px; width: 90%;">
+                    <h3 style="color: var(--primary-color); margin-bottom: 20px;">用户登录</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px;">用户名</label>
+                        <input type="text" id="tempLoginUsername" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" placeholder="请输入用户名">
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px;">密码</label>
+                        <input type="password" id="tempLoginPassword" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" placeholder="请输入密码">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="handleTempLogin()" style="flex: 1; padding: 10px; background: var(--primary-color); color: white; border: none; border-radius: 5px; cursor: pointer;">登录</button>
+                        <button onclick="handleTempGuestLogin()" style="flex: 1; padding: 10px; background: #f8f9fa; color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; cursor: pointer;">游客访问</button>
+                        <button onclick="this.parentElement.parentElement.parentElement.remove()" style="padding: 10px; background: #f8f9fa; color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; cursor: pointer;">取消</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        // 处理临时登录
+        function handleTempLogin() {
+            const username = document.getElementById('tempLoginUsername').value;
+            const password = document.getElementById('tempLoginPassword').value;
+            
+            if (username.trim() === '') {
+                alert('请输入用户名');
+                return;
+            }
+            
+            // 这里可以向后端验证用户信息，当前为模拟实现
+            const userData = {
+                username: username,
+                password: password, // 注意：实际应用中不应存储明文密码
+                loginTime: new Date().toISOString()
+            };
+            localStorage.setItem('currentUser', JSON.stringify(userData));
+            document.getElementById('username').textContent = username;
+            // 隐藏登录按钮，显示登出按钮
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'inline-block';
+            
+            // 关闭模态框
+            const modal = document.querySelector('div[style*="position: fixed"]');
+            if (modal) modal.remove();
+        }
+
+        // 处理临时游客登录
+        function handleTempGuestLogin() {
+            const username = '游客_' + Date.now().toString().substr(-4);
+            const userData = {
+                username: username,
+                password: '',
+                loginTime: new Date().toISOString()
+            };
+            localStorage.setItem('currentUser', JSON.stringify(userData));
+            document.getElementById('username').textContent = username;
+            // 隐藏登录按钮，显示登出按钮
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'inline-block';
+            
+            // 关闭模态框
+            const modal = document.querySelector('div[style*="position: fixed"]');
+            if (modal) modal.remove();
+        }
+
+        // 处理登出
+        function handleLogout() {
+            if (confirm('确定要登出吗？')) {
+                localStorage.removeItem('currentUser');
+                document.getElementById('username').textContent = '游客';
+                // 显示登录按钮，隐藏登出按钮
+                document.getElementById('loginBtn').style.display = 'inline-block';
+                document.getElementById('logoutBtn').style.display = 'none';
+            }
+        }
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            checkLoginStatus();
+            
+            // 登录相关事件监听器
+            document.getElementById('loginBtn').addEventListener('click', showLoginModal);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+
+            // 监听本地存储变化，实现跨标签页登录状态同步
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'currentUser') {
+                    checkLoginStatus(); // 当本地存储中的用户信息改变时，更新UI
+                }
+            });
+        });
+    </script>
+</body>
+</html>

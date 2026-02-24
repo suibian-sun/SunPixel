@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>市场 - SunPixel</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --primary-dark: #2980b9;
+            --secondary-color: #2ecc71;
+            --dark-bg: #1a1a1a;
+            --light-bg: #f8f9fa;
+            --text-color: #333;
+            --text-light: #666;
+            --border-color: #ddd;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--light-bg);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+        
+        /* 导航栏 */
+        .navbar {
+            background: white;
+            box-shadow: var(--shadow);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo i {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        
+        .logo h1 {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 500;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover,
+        .nav-links a.active {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-info span {
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        /* 主要内容 */
+        .main-content {
+            max-width: 1200px;
+            margin: 80px auto 20px;
+            padding: 0 20px;
+        }
+        
+        .page-header {
+            margin-bottom: 30px;
+        }
+        
+        .page-header h2 {
+            font-size: 28px;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 市场网格 */
+        .market-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .market-header {
+            font-size: 22px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .market-header i {
+            margin-right: 10px;
+        }
+        
+        .market-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .market-item {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+            border: 1px solid var(--border-color);
+        }
+        
+        .market-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .market-item-img {
+            width: 100%;
+            height: 180px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+            font-size: 14px;
+        }
+        
+        .market-item-content {
+            padding: 15px;
+        }
+        
+        .market-item h5 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: var(--primary-color);
+        }
+        
+        .market-item p {
+            color: var(--text-light);
+            font-size: 14px;
+            margin: 0 0 10px 0;
+            line-height: 1.5;
+        }
+        
+        .market-item .btn {
+            width: 100%;
+            margin: 0;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-light);
+        }
+        
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 20px;
+            color: #ddd;
+        }
+        
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        /* 模态框 */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+        
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            transform: translateY(-20px);
+            transition: transform 0.3s;
+        }
+        
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            text-decoration: none;
+            text-align: center;
+            min-width: 120px;
+        }
+        
+        .btn:hover {
+            background: var(--primary-dark);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .market-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .market-container {
+                padding: 20px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-sun"></i>
+                <h1>SunPixel</h1>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/"><i class="fas fa-home"></i> 控制台</a></li>
+                <li><a href="/history"><i class="fas fa-history"></i> 历史记录</a></li>
+                <li><a href="/market" class="active"><i class="fas fa-store"></i> 市场</a></li>
+                <li><a href="/changelog"><i class="fas fa-clipboard-list"></i> 更新记录</a></li>
+            </ul>
+            <div class="user-info">
+                <span id="username">游客</span>
+                <button class="btn btn-outline btn-sm" id="loginBtn">登录</button>
+                <button class="btn btn-outline btn-sm" id="logoutBtn" style="display: none;">登出</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <div class="main-content">
+        <div class="page-header">
+            <h2><i class="fas fa-store"></i> 市场</h2>
+        </div>
+        
+        <div class="market-container">
+            <div class="market-header">
+                <i class="fas fa-shopping-cart me-2"></i> 像素画作品
+            </div>
+            
+            <div class="market-controls" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div class="search-box">
+                    <input type="text" class="form-control" id="searchInput" placeholder="搜索作品..." style="width: 300px;">
+                </div>
+                <div class="sort-options">
+                    <select class="form-control" id="sortSelect" style="width: auto;">
+                        <option value="upload_time">按上传时间</option>
+                        <option value="download_count">按下载量</option>
+                        <option value="favorites">按收藏数</option>
+                        <option value="title">按标题</option>
+                    </select>
+                </div>
+                <button class="btn" id="uploadMarketBtn" onclick="showUploadModal()">
+                    <i class="fas fa-upload"></i> 上传作品
+                </button>
+            </div>
+            
+            <div class="market-grid" id="marketGrid">
+                <!-- 动态加载市场项目 -->
+                <div id="marketEmpty" class="empty-state" style="display: none;">
+                    <i class="fas fa-store"></i>
+                    <h3>市场中暂无作品</h3>
+                    <p>成为第一个上传者吧！</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 上传作品模态框 -->
+    <div class="modal" id="uploadModal">
+        <div class="modal-content">
+            <span class="modal-close" id="closeUploadModal">&times;</span>
+            <div class="modal-title">上传作品到市场</div>
+            <form class="upload-form" id="marketUploadForm">
+                <div class="form-group">
+                    <label class="form-label">选择文件</label>
+                    <input type="file" class="form-control" id="marketFileInput" accept=".schem,.nbt,.litematic,.json" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">作品标题</label>
+                    <input type="text" class="form-control" id="marketTitle" placeholder="请输入作品标题" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">作品描述</label>
+                    <textarea class="form-control" id="marketDescription" placeholder="请输入作品描述" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">上传作品</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 用户统计模态框 -->
+    <div class="modal" id="userStatsModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="modal-close" id="closeUserStatsModal">&times;</span>
+            <div class="modal-title">用户统计信息</div>
+            <div id="userStatsContent">
+                <!-- 动态加载用户统计信息 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 项目详情模态框 -->
+    <div class="modal" id="itemModal">
+        <div class="modal-content">
+            <span class="modal-close" id="closeItemModal">&times;</span>
+            <div class="modal-title">作品详情</div>
+            <div id="itemDetails">
+                <!-- 动态加载项目详情 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录模态框 -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <span class="modal-close" id="closeLoginModal">&times;</span>
+            <div class="modal-title">用户登录</div>
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" class="form-control" id="loginUsername" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-control" id="loginPassword" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="btn">登录</button>
+                <button type="button" class="btn btn-outline" id="guestLoginBtn">游客访问</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 检查登录状态
+        function checkLoginStatus() {
+            const user = localStorage.getItem('currentUser');
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    document.getElementById('username').textContent = userData.username;
+                    // 隐藏登录按钮，显示登出按钮
+                    document.getElementById('loginBtn').style.display = 'none';
+                    document.getElementById('logoutBtn').style.display = 'inline-block';
+                } catch (e) {
+                    console.error('解析用户信息失败:', e);
+                }
+            } else {
+                document.getElementById('username').textContent = '游客';
+                // 显示登录按钮，隐藏登出按钮
+                document.getElementById('loginBtn').style.display = 'inline-block';
+                document.getElementById('logoutBtn').style.display = 'none';
+            }
+        }
+
+        // 显示登录模态框
+        function showLoginModal() {
+            document.getElementById('loginModal').classList.add('active');
+        }
+
+        // 隐藏登录模态框
+        function hideLoginModal() {
+            document.getElementById('loginModal').classList.remove('active');
+        }
+
+        // 处理登录
+        function handleLogin(username, password) {
+            // 这里可以向后端验证用户信息，当前为模拟实现
+            const userData = {
+                username: username,
+                password: password, // 注意：实际应用中不应存储明文密码
+                loginTime: new Date().toISOString()
+            };
+            localStorage.setItem('currentUser', JSON.stringify(userData));
+            document.getElementById('username').textContent = username;
+            // 隐藏登录按钮，显示登出按钮
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'inline-block';
+            hideLoginModal();
+        }
+
+        // 处理登出
+        function handleLogout() {
+            localStorage.removeItem('currentUser');
+            document.getElementById('username').textContent = '游客';
+            // 显示登录按钮，隐藏登出按钮
+            document.getElementById('loginBtn').style.display = 'inline-block';
+            document.getElementById('logoutBtn').style.display = 'none';
+        }
+
+        // 显示项目详情
+        function showItemDetails(itemId) {
+            const details = document.getElementById('itemDetails');
+            details.innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="width: 100%; height: 250px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                        <i class="fas fa-image fa-5x" style="color: #ddd;"></i>
+                    </div>
+                    <h4>示例作品 ${itemId}</h4>
+                    <p>这是示例作品 ${itemId} 的详细信息。在实际应用中，这里会显示从服务器获取的真实作品信息。</p>
+                </div>
+                <div style="margin-top: 20px;">
+                    <h5>作品信息</h5>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>作者:</strong> 示例作者</li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>创建时间:</strong> 2023-01-01</li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>尺寸:</strong> 128x128 方块</li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>方块类型:</strong> 羊毛, 混凝土</li>
+                        <li style="padding: 8px 0;"><strong>描述:</strong> 这是一个精美的像素画作品，展示了创作者的技巧和创意。</li>
+                    </ul>
+                </div>
+                <div style="margin-top: 20px; text-align: center;">
+                    <button class="btn" onclick="downloadItem(${itemId})" style="margin-right: 10px;"><i class="fas fa-download"></i> 下载</button>
+                    <button class="btn btn-outline" onclick="favoriteItem(${itemId})"><i class="fas fa-heart"></i> 收藏</button>
+                </div>
+            `;
+            
+            document.getElementById('itemModal').classList.add('active');
+        }
+
+        // 隐藏项目详情模态框
+        function hideItemModal() {
+            document.getElementById('itemModal').classList.remove('active');
+        }
+
+        // 下载项目
+        function downloadItem(itemId) {
+            alert(`正在下载作品 ${itemId}... 在实际应用中，这里会触发文件下载。`);
+        }
+
+                // 加载市场项目
+
+                async function loadMarketItems(sortBy = 'upload_time') {
+
+                    try {
+
+                        const response = await fetch('/api/market');
+
+                        const marketData = await response.json();
+
+                        
+
+                        const marketGrid = document.getElementById('marketGrid');
+
+                        const marketEmpty = document.getElementById('marketEmpty');
+
+                        
+
+                        if (marketData.length === 0) {
+
+                            marketEmpty.style.display = 'block';
+
+                            marketGrid.innerHTML = '';
+
+                            return;
+
+                        }
+
+                        
+
+                        marketEmpty.style.display = 'none';
+
+                        
+
+                        // 根据选择的排序方式对数据进行排序
+
+                        let sortedData = [...marketData];
+
+                        
+
+                        switch(sortBy) {
+
+                            case 'download_count':
+
+                                sortedData.sort((a, b) => b.download_count - a.download_count);
+
+                                break;
+
+                            case 'favorites':
+
+                                sortedData.sort((a, b) => b.favorites - a.favorites);
+
+                                break;
+
+                            case 'title':
+
+                                sortedData.sort((a, b) => a.title.localeCompare(b.title));
+
+                                break;
+
+                            case 'upload_time':
+
+                            default:
+
+                                // 按上传时间排序（最新在前）
+
+                                sortedData.sort((a, b) => new Date(b.upload_time) - new Date(a.upload_time));
+
+                                break;
+
+                        }
+
+                        
+
+                        // 清空现有列表
+
+                        marketGrid.innerHTML = '';
+
+                        
+
+                        // 为每个市场项目创建卡片
+
+                        sortedData.forEach(item => {
+
+                            const marketItem = document.createElement('div');
+
+                            marketItem.className = 'market-item';
+
+                            marketItem.dataset.id = item.id; // 存储项目ID
+
+                            
+
+                            marketItem.innerHTML = `
+
+                                <div class="market-item-img">
+
+                                    <i class="fas fa-cube fa-3x" style="color: #4CAF50;"></i>
+
+                                </div>
+
+                                <div class="market-item-content">
+
+                                    <h5>${item.title}</h5>
+
+                                    <p>${item.description}</p>
+
+                                    <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.9em; color: #666;">
+
+                                        <span><i class="fas fa-user"></i> <a href="#" onclick="showUserStats('${item.author}'); return false;" style="color: #666; text-decoration: none;">${item.author}</a></span>
+
+                                        <span><i class="fas fa-download"></i> ${item.download_count}</span>
+
+                                    </div>
+
+                                    <div style="margin-top: 10px;">
+
+                                        <button class="btn" onclick="downloadMarketItem('${item.id}')" style="margin-right: 5px;"><i class="fas fa-download"></i> 下载</button>
+
+                                        <button class="btn btn-outline" onclick="showItemDetails('${item.id}')"><i class="fas fa-info-circle"></i> 详情</button>
+
+                                    </div>
+
+                                </div>
+
+                            `;
+
+                            
+
+                            marketGrid.appendChild(marketItem);
+
+                        });
+
+                    } catch (error) {
+
+                        console.error('加载市场项目失败:', error);
+
+                        showMessage('加载失败', '无法加载市场项目: ' + error.message, 'error');
+
+                    }
+
+                }
+
+        
+
+                // 搜索市场项目
+
+                function searchMarketItems() {
+
+                    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+                    
+
+                    // 获取所有市场项目元素
+
+                    const marketItems = document.querySelectorAll('.market-item');
+
+                    
+
+                    marketItems.forEach(item => {
+
+                        const title = item.querySelector('h5').textContent.toLowerCase();
+
+                        const description = item.querySelector('p').textContent.toLowerCase();
+
+                        const author = item.querySelector('.market-item-content div span:first-child').textContent.toLowerCase().replace('👤 ', '');
+
+                        
+
+                        // 检查搜索词是否匹配标题、描述或作者
+
+                        if (title.includes(searchTerm) || description.includes(searchTerm) || author.includes(searchTerm)) {
+
+                            item.style.display = 'block';
+
+                        } else {
+
+                            item.style.display = 'none';
+
+                        }
+
+                    });
+
+                    
+
+                    // 如果没有匹配项，显示空状态
+
+                    const visibleItems = document.querySelectorAll('.market-item[style*="display: block"], .market-item:not([style])');
+
+                    const marketEmpty = document.getElementById('marketEmpty');
+
+                    
+
+                    if (visibleItems.length === 0 && searchTerm) {
+
+                        marketEmpty.style.display = 'block';
+
+                        marketEmpty.innerHTML = `
+
+                            <i class="fas fa-search"></i>
+
+                            <h3>未找到匹配结果</h3>
+
+                            <p>没有找到包含 "${searchTerm}" 的作品</p>
+
+                        `;
+
+                    } else {
+
+                        marketEmpty.style.display = 'none';
+
+                    }
+
+                }
+
+        // 下载市场项目
+        async function downloadMarketItem(itemId) {
+            try {
+                // 直接重定向到下载链接
+                window.location.href = `/api/market/${itemId}/download`;
+            } catch (error) {
+                console.error('下载失败:', error);
+                showMessage('下载失败', error.message, 'error');
+            }
+        }
+
+        // 显示项目详情
+        function showItemDetails(itemId) {
+            // 查找对应项目
+            const itemElement = document.querySelector(`.market-item[data-id="${itemId}"]`);
+            if (!itemElement) return;
+            
+            // 获取项目信息（这里简单地从DOM获取，实际应用中应从API获取详细信息）
+            const title = itemElement.querySelector('h5').textContent;
+            const description = itemElement.querySelector('p').textContent;
+            const author = itemElement.querySelector('.market-item-content div span:first-child').textContent.replace('👤 ', '');
+            
+            const details = document.getElementById('itemDetails');
+            details.innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="width: 100%; height: 250px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                        <i class="fas fa-cube fa-5x" style="color: #4CAF50;"></i>
+                    </div>
+                    <h4>${title}</h4>
+                    <p>${description}</p>
+                </div>
+                <div style="margin-top: 20px;">
+                    <h5>作品信息</h5>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>作者:</strong> ${author}</li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>上传时间:</strong> 即时获取</li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>下载次数:</strong> 即时获取</li>
+                        <li style="padding: 8px 0;"><strong>描述:</strong> ${description}</li>
+                    </ul>
+                </div>
+                <div style="margin-top: 20px; text-align: center;">
+                    <button class="btn" onclick="downloadMarketItem('${itemId}')" style="margin-right: 10px;"><i class="fas fa-download"></i> 下载</button>
+                    <button class="btn btn-outline" onclick="favoriteItem('${itemId}')"><i class="fas fa-heart"></i> 收藏</button>
+                </div>
+            `;
+            
+            document.getElementById('itemModal').classList.add('active');
+        }
+
+        // 显示上传模态框
+        function showUploadModal() {
+            // 检查是否已登录
+            const user = localStorage.getItem('currentUser');
+            if (!user) {
+                showMessage('请先登录', '需要登录后才能上传作品', 'warning');
+                showLoginModal();
+                return;
+            }
+            
+            document.getElementById('uploadModal').classList.add('active');
+        }
+
+        // 隐藏上传模态框
+        function hideUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+        }
+
+        // 上传作品到市场
+        async function uploadToMarket() {
+            const fileInput = document.getElementById('marketFileInput');
+            const titleInput = document.getElementById('marketTitle');
+            const descriptionInput = document.getElementById('marketDescription');
+            
+            if (!fileInput.files[0]) {
+                showMessage('错误', '请选择要上传的文件', 'error');
+                return;
+            }
+            
+            if (!titleInput.value.trim()) {
+                showMessage('错误', '请输入作品标题', 'error');
+                return;
+            }
+            
+            // 检查是否已登录
+            const user = localStorage.getItem('currentUser');
+            if (!user) {
+                showMessage('错误', '请先登录', 'error');
+                showLoginModal();
+                return;
+            }
+            
+            const userData = JSON.parse(user);
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('author', userData.username);
+                formData.append('title', titleInput.value.trim());
+                formData.append('description', descriptionInput.value.trim() || '通过SunPixel上传的结构文件');
+                
+                const response = await fetch('/api/market/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('上传成功', '作品已成功上传到市场', 'success');
+                    hideUploadModal();
+                    // 重新加载市场项目
+                    loadMarketItems();
+                    // 重置表单
+                    document.getElementById('marketUploadForm').reset();
+                } else {
+                    throw new Error(result.error || '上传失败');
+                }
+            } catch (error) {
+                console.error('上传失败:', error);
+                showMessage('上传失败', error.message, 'error');
+            }
+        }
+
+        // 显示用户统计数据
+        async function showUserStats(username) {
+            try {
+                const response = await fetch(`/api/user/${encodeURIComponent(username)}`);
+                const userData = await response.json();
+                
+                if (userData.error) {
+                    throw new Error(userData.error);
+                }
+                
+                const content = document.getElementById('userStatsContent');
+                let projectsHtml = '';
+                
+                if (userData.projects.length > 0) {
+                    userData.projects.forEach(project => {
+                        projectsHtml += `
+                        <div class="market-item" style="margin-bottom: 10px; padding: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong>${project.title}</strong>
+                                    <div style="font-size: 0.9em; color: #666; margin-top: 4px;">${project.description}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div><i class="fas fa-download"></i> ${project.download_count} 次</div>
+                                    <div><i class="fas fa-heart"></i> ${project.favorites} 收藏</div>
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+                } else {
+                    projectsHtml = '<p style="text-align: center; color: #666;">该用户暂无上传作品</p>';
+                }
+                
+                content.innerHTML = `
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h4 style="color: var(--primary-color); margin-bottom: 5px;">${userData.username}</h4>
+                        <p>用户统计信息</p>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: var(--primary-color);">${userData.total_uploads}</div>
+                            <div style="color: #666;">总上传数</div>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: var(--primary-color);">${userData.total_downloads}</div>
+                            <div style="color: #666;">总下载数</div>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: var(--primary-color);">${userData.total_favorites}</div>
+                            <div style="color: #666;">总收藏数</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <h5 style="margin-bottom: 10px; color: var(--primary-color); border-bottom: 1px solid #eee; padding-bottom: 8px;">用户作品</h5>
+                        ${projectsHtml}
+                    </div>
+                `;
+                
+                document.getElementById('userStatsModal').classList.add('active');
+            } catch (error) {
+                console.error('加载用户统计失败:', error);
+                showMessage('加载失败', '无法加载用户统计信息: ' + error.message, 'error');
+            }
+        }
+
+        // 收藏项目
+        async function favoriteItem(itemId) {
+            try {
+                const response = await fetch(`/api/market/${itemId}/favorite`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('已收藏', '作品已添加到收藏', 'success');
+                    
+                    // 更新UI中的收藏数（如果在详情页）
+                    const favoriteBtn = document.querySelector(`.market-item[data-id="${itemId}"] .btn-outline[onclick*="favoriteItem"]`);
+                    if (favoriteBtn) {
+                        // 这里可以更新收藏按钮状态或计数，但需要从API获取最新数据
+                    }
+                } else {
+                    throw new Error(result.error || '收藏失败');
+                }
+            } catch (error) {
+                console.error('收藏失败:', error);
+                showMessage('收藏失败', error.message, 'error');
+            }
+        }
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            checkLoginStatus();
+            
+            // 加载市场项目
+            loadMarketItems();
+            
+            // 市场上传按钮事件监听器
+            document.getElementById('uploadMarketBtn').addEventListener('click', showUploadModal);
+            document.getElementById('closeUploadModal').addEventListener('click', hideUploadModal);
+            
+            // 市场上传表单提交
+            document.getElementById('marketUploadForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                uploadToMarket();
+            });
+            
+            // 排序下拉菜单事件监听器
+            document.getElementById('sortSelect').addEventListener('change', function() {
+                loadMarketItems(this.value);
+            });
+            
+            // 搜索框事件监听器
+            document.getElementById('searchInput').addEventListener('input', searchMarketItems);
+            
+            // 用户统计模态框事件监听器
+            document.getElementById('closeUserStatsModal').addEventListener('click', function() {
+                document.getElementById('userStatsModal').classList.remove('active');
+            });
+            
+            document.getElementById('userStatsModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    document.getElementById('userStatsModal').classList.remove('active');
+                }
+            });
+            
+            // 登录相关事件监听器
+            document.getElementById('loginBtn').addEventListener('click', showLoginModal);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            document.getElementById('closeLoginModal').addEventListener('click', hideLoginModal);
+            document.getElementById('closeItemModal').addEventListener('click', hideItemModal);
+            document.getElementById('closeUploadModal').addEventListener('click', hideUploadModal);
+            
+            // 登录表单提交
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+                handleLogin(username, password);
+            });
+            
+            document.getElementById('guestLoginBtn').addEventListener('click', function() {
+                handleLogin('游客_' + Date.now().toString().substr(-4), '');
+            });
+
+            // 监听本地存储变化，实现跨标签页登录状态同步
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'currentUser') {
+                    checkLoginStatus(); // 当本地存储中的用户信息改变时，更新UI
+                }
+            });
+
+            // 点击模态框外部关闭
+            document.getElementById('loginModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    hideLoginModal();
+                }
+            });
+            
+            document.getElementById('itemModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    hideItemModal();
+                }
+            });
+            
+            document.getElementById('uploadModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    hideUploadModal();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+#矿石系列
+
+{
+  "(73, 91, 36)": ["minecraft:coal_ore", 0],
+  "(224, 224, 224)": ["minecraft:iron_ore", 0],
+  "(240, 240, 150)": ["minecraft:gold_ore", 0],
+  "(53, 114, 53)": ["minecraft:copper_ore", 0],
+  "(79, 142, 65)": ["minecraft:emerald_ore", 0],
+  "(115, 115, 115)": ["minecraft:lapis_ore", 0],
+  "(227, 212, 209)": ["minecraft:diamond_ore", 0],
+  "(255, 252, 245)": ["minecraft:quartz_ore", 0],
+  "(54, 57, 61)": ["minecraft:deepslate_coal_ore", 0],
+  "(75, 75, 75)": ["minecraft:deepslate_iron_ore", 0],
+  "(102, 102, 76)": ["minecraft:deepslate_gold_ore", 0],
+  "(79, 112, 79)": ["minecraft:deepslate_copper_ore", 0],
+  "(85, 142, 71)": ["minecraft:deepslate_emerald_ore", 0],
+  "(31, 46, 76)": ["minecraft:deepslate_lapis_ore", 0],
+  "(92, 92, 92)": ["minecraft:deepslate_diamond_ore", 0]
+}

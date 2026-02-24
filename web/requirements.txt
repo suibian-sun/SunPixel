@@ -1,0 +1,5 @@
+flask==2.3.3
+numpy==1.24.3
+pypng==0.20220715.0
+Pillow==10.0.0
+nbtlib>=1.5.0

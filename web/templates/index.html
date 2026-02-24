@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>像素画转换 - SunPixel</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --primary-dark: #2980b9;
+            --secondary-color: #2ecc71;
+            --dark-bg: #1a1a1a;
+            --light-bg: #f8f9fa;
+            --text-color: #333;
+            --text-light: #666;
+            --border-color: #ddd;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--light-bg);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+        
+        /* 导航栏 */
+        .navbar {
+            background: white;
+            box-shadow: var(--shadow);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo i {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        
+        .logo h1 {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 500;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover,
+        .nav-links a.active {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-info span {
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        /* 主要内容 */
+        .main-content {
+            max-width: 1200px;
+            margin: 80px auto 20px;
+            padding: 0 20px;
+        }
+        
+        .page-header {
+            margin-bottom: 30px;
+        }
+        
+        .page-header h2 {
+            font-size: 28px;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .card-header {
+            font-size: 22px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .card-header i {
+            margin-right: 10px;
+        }
+        
+        /* 配置面板 */
+        .config-panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .config-section {
+            margin-bottom: 25px;
+        }
+        
+        .config-section h4 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed var(--border-color);
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        /* 上传区域 */
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 30px;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .upload-section:hover {
+            border-color: var(--primary-color);
+            background: rgba(52, 152, 219, 0.03);
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        
+        .upload-text {
+            font-size: 16px;
+            color: var(--text-light);
+            margin-bottom: 15px;
+        }
+        
+        /* 按钮样式 */
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            text-decoration: none;
+            text-align: center;
+            min-width: 120px;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            background: var(--primary-dark);
+        }
+        
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+            justify-content: center;
+        }
+        
+        /* 预览区域 */
+        .preview-section {
+            margin-top: 30px;
+        }
+        
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .preview-item {
+            text-align: center;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: white;
+        }
+        
+        .preview-image {
+            max-width: 100%;
+            max-height: 250px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            object-fit: contain;
+        }
+        
+        /* 进度条 */
+        .progress-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .progress {
+            height: 25px;
+            background: #e9ecef;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 500;
+            transition: width 0.3s;
+        }
+        
+        .progress-info {
+            margin-top: 10px;
+        }
+        
+        .logs {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            line-height: 1.4;
+        }
+        
+        .log-success { color: #28a745; }
+        .log-error { color: #dc3545; }
+        .log-warning { color: #ffc107; }
+        .log-info { color: #17a2b8; }
+        
+        /* 方块选择面板 */
+        .block-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .block-item {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-height: 80px;
+        }
+        
+
+        
+        .block-item:hover {
+            border-color: var(--primary-color);
+            background: rgba(52, 152, 219, 0.1);
+        }
+        
+        .block-item.selected {
+            border-color: var(--primary-color);
+            background: rgba(52, 152, 219, 0.2);
+        }
+        
+        /* 统计信息 */
+        .counter-section {
+            margin-top: 20px;
+        }
+        
+        .counter-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .counter-item:last-child {
+            border-bottom: none;
+        }
+        
+        /* 模态框 */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+        
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            transform: translateY(-20px);
+            transition: transform 0.3s;
+        }
+        
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+        
+        /* 登录表单 */
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .preview-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .config-panel {
+                padding: 15px;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+            
+            .block-selection {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-sun"></i>
+                <h1>SunPixel</h1>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/" class="active"><i class="fas fa-home"></i> 控制台</a></li>
+                <li><a href="/history"><i class="fas fa-history"></i> 历史记录</a></li>
+                <li><a href="/market"><i class="fas fa-store"></i> 市场</a></li>
+                <li><a href="/changelog"><i class="fas fa-clipboard-list"></i> 更新记录</a></li>
+            </ul>
+            <div class="user-info">
+                <span id="username">游客</span>
+                <button class="btn btn-outline btn-sm" id="loginBtn">登录</button>
+                <button class="btn btn-outline btn-sm" id="logoutBtn" style="display: none;">登出</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <div class="main-content">
+        <div class="page-header">
+            <h2><i class="fas fa-palette"></i> 2D像素画转换</h2>
+        </div>
+        
+        <!-- 配置面板 -->
+        <div class="config-panel">
+            <div class="config-section">
+                <h4><i class="fas fa-cog me-2"></i> 输出格式</h4>
+                <div class="form-group">
+                    <label class="form-label">选择输出格式</label>
+                    <select id="format" class="form-control">
+                        <option value="schem">.schem (标准结构文件)</option>
+                        <option value="json">.json (RunAway格式)</option>
+                        <option value="litematic">.litematic (Litematica格式)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <h4><i class="fas fa-cube me-2"></i> 方块选择</h4>
+                <div class="form-group">
+                    <label class="form-label">选择方块类型</label>
+                    <div class="block-selection" id="blockSelection">
+                        <!-- 动态加载方块选项 -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <h4><i class="fas fa-ruler me-2"></i> 尺寸设置</h4>
+                <div class="row" style="display: flex; flex-wrap: wrap; gap: 15px;">
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label class="form-label">长度</label>
+                        <input type="number" class="form-control" id="width" value="128" min="1" max="512">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label class="form-label">宽度</label>
+                        <input type="number" class="form-control" id="height" value="128" min="1" max="512">
+                    </div>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="isDither">
+                    <label for="isDither">抖动算法</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="isEnhance">
+                    <label for="isEnhance">强化地图画</label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 上传区域 -->
+        <div class="upload-section" id="uploadSection">
+            <i class="fas fa-cloud-upload-alt upload-icon"></i>
+            <div class="upload-text">点击选择或拖拽图片到此区域</div>
+            <div>支持 PNG 和 JPG 格式</div>
+            <input type="file" accept="image/*" id="fileInput" class="form-control" style="margin-top: 15px; max-width: 300px; display: inline-block;">
+        </div>
+        
+        <!-- 按钮组 -->
+        <div class="btn-group">
+            <button class="btn" id="startConversion">
+                <i class="fas fa-cogs"></i> 开始转换
+            </button>
+            <button class="btn btn-outline" id="downloadBtn" disabled>
+                <i class="fas fa-download"></i> 下载
+            </button>
+            <button class="btn btn-outline" id="uploadToMarketBtn" disabled>
+                <i class="fas fa-store"></i> 上传市场
+            </button>
+            <a href="/manual" class="btn btn-outline" id="manualBtn">
+                <i class="fas fa-tools"></i> 手动搭建
+            </a>
+        </div>
+        
+        <!-- 图片预览区 -->
+        <div class="preview-section" id="previewSection" style="display: none;">
+            <div class="card-header">
+                <i class="fas fa-eye me-2"></i> 预览
+            </div>
+            <div class="preview-grid">
+                <div class="preview-item">
+                    <h6>原图</h6>
+                    <img id="originalPreview" class="preview-image" src="" alt="原图预览">
+                </div>
+                <div class="preview-item">
+                    <h6>效果图</h6>
+                    <img id="resultPreview" class="preview-image" src="" alt="效果图预览">
+                </div>
+            </div>
+        </div>
+        
+        <!-- 转换进度显示 -->
+        <div id="progressSection" class="progress-section" style="display: none;">
+            <div class="card-header">
+                <i class="fas fa-sync-alt me-2"></i> 转换进度
+            </div>
+            <div class="progress">
+                <div class="progress-bar bg-info" id="progressBar" style="width: 0%;">
+                    0%
+                </div>
+            </div>
+            <div class="progress-info">
+                <p id="progressMessage">准备开始转换...</p>
+            </div>
+            <div id="progressLogs" class="logs"></div>
+        </div>
+        
+        <!-- 显示统计信息 -->
+        <div class="counter-section" id="counterSection" style="display: none;">
+            <div class="card-header">
+                <i class="fas fa-chart-bar me-2"></i> 方块统计
+            </div>
+            <div id="counterContent"></div>
+        </div>
+    </div>
+
+    <!-- 方块详细选择模态框 -->
+    <div class="modal" id="blockDetailModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="modal-close" id="closeBlockDetailModal">&times;</span>
+            <div class="modal-title">详细方块选择</div>
+            <div id="blockDetailContent">
+                <p>选择特定的方块变种：</p>
+                <div id="detailedBlockSelection" class="block-selection" style="grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录模态框 -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <span class="modal-close" id="closeLoginModal">&times;</span>
+            <div class="modal-title">用户登录</div>
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" class="form-control" id="loginUsername" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-control" id="loginPassword" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="btn">登录</button>
+                <button type="button" class="btn btn-outline" id="guestLoginBtn">游客访问</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let imgOri = null;  // 原始图片数据
+        let imgRes = null;  // 结果图片数据
+        let isConverting = false;  // 转换状态
+        let downloadTaskId = null;  // 下载任务ID
+        let selectedBlocks = ['wool', 'concrete'];  // 选中的方块类型
+        let allBlocks = [];  // 所有可用方块
+
+        // 检查登录状态
+        function checkLoginStatus() {
+            const user = localStorage.getItem('currentUser');
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    document.getElementById('username').textContent = userData.username;
+                    // 隐藏登录按钮，显示登出按钮
+                    document.getElementById('loginBtn').style.display = 'none';
+                    document.getElementById('logoutBtn').style.display = 'inline-block';
+                } catch (e) {
+                    console.error('解析用户信息失败:', e);
+                }
+            } else {
+                document.getElementById('username').textContent = '游客';
+                // 显示登录按钮，隐藏登出按钮
+                document.getElementById('loginBtn').style.display = 'inline-block';
+                document.getElementById('logoutBtn').style.display = 'none';
+            }
+        }
+
+        // 显示登录模态框
+        function showLoginModal() {
+            document.getElementById('loginModal').classList.add('active');
+        }
+
+        // 隐藏登录模态框
+        function hideLoginModal() {
+            document.getElementById('loginModal').classList.remove('active');
+        }
+
+        // 显示方块详细选择模态框
+        function showBlockDetailModal(blockType) {
+            // 获取当前选中的方块类型
+            const detailedBlockSelection = document.getElementById('detailedBlockSelection');
+            detailedBlockSelection.innerHTML = '';
+            
+            // 根据方块类型显示详细选项
+            const detailedBlocks = getDetailedBlocks(blockType);
+            
+            detailedBlocks.forEach(detailedBlock => {
+                const blockItem = document.createElement('div');
+                blockItem.className = 'block-item';
+                
+                const blockName = document.createElement('div');
+                blockName.textContent = detailedBlock.name;
+                
+                blockItem.appendChild(blockName);
+                blockItem.dataset.value = detailedBlock.value;
+                
+                // 检查是否已被选中
+                if (selectedBlocks.includes(detailedBlock.value)) {
+                    blockItem.classList.add('selected');
+                }
+                
+                blockItem.addEventListener('click', function() {
+                    this.classList.toggle('selected');
+                    const blockValue = this.dataset.value;
+                    
+                    if (this.classList.contains('selected')) {
+                        if (!selectedBlocks.includes(blockValue)) {
+                            selectedBlocks.push(blockValue);
+                        }
+                    } else {
+                        selectedBlocks = selectedBlocks.filter(b => b !== blockValue);
+                    }
+                });
+                
+                detailedBlockSelection.appendChild(blockItem);
+            });
+            
+            document.getElementById('blockDetailModal').classList.add('active');
+        }
+
+        // 隐藏方块详细选择模态框
+        function hideBlockDetailModal() {
+            document.getElementById('blockDetailModal').classList.remove('active');
+        }
+
+        // 获取详细方块选项
+        function getDetailedBlocks(blockType) {
+            // 根据方块类型返回详细选项
+            const detailedOptions = {
+                'wool': [
+                    {type: 'white_wool', name: '白色羊毛', value: 'wool'},
+                    {type: 'orange_wool', name: '橙色羊毛', value: 'wool'},
+                    {type: 'magenta_wool', name: '品红色羊毛', value: 'wool'},
+                    {type: 'light_blue_wool', name: '淡蓝色羊毛', value: 'wool'},
+                    {type: 'yellow_wool', name: '黄色羊毛', value: 'wool'},
+                    {type: 'lime_wool', name: '黄绿色羊毛', value: 'wool'},
+                    {type: 'pink_wool', name: '粉红色羊毛', value: 'wool'},
+                    {type: 'gray_wool', name: '灰色羊毛', value: 'wool'},
+                    {type: 'light_gray_wool', name: '淡灰色羊毛', value: 'wool'},
+                    {type: 'cyan_wool', name: '青色羊毛', value: 'wool'},
+                    {type: 'purple_wool', name: '紫色羊毛', value: 'wool'},
+                    {type: 'blue_wool', name: '蓝色羊毛', value: 'wool'},
+                    {type: 'brown_wool', name: '棕色羊毛', value: 'wool'},
+                    {type: 'green_wool', name: '绿色羊毛', value: 'wool'},
+                    {type: 'red_wool', name: '红色羊毛', value: 'wool'},
+                    {type: 'black_wool', name: '黑色羊毛', value: 'wool'}
+                ],
+                'concrete': [
+                    {type: 'white_concrete', name: '白色混凝土', value: 'concrete'},
+                    {type: 'orange_concrete', name: '橙色混凝土', value: 'concrete'},
+                    {type: 'magenta_concrete', name: '品红色混凝土', value: 'concrete'},
+                    {type: 'light_blue_concrete', name: '淡蓝色混凝土', value: 'concrete'},
+                    {type: 'yellow_concrete', name: '黄色混凝土', value: 'concrete'},
+                    {type: 'lime_concrete', name: '黄绿色混凝土', value: 'concrete'},
+                    {type: 'pink_concrete', name: '粉红色混凝土', value: 'concrete'},
+                    {type: 'gray_concrete', name: '灰色混凝土', value: 'concrete'},
+                    {type: 'light_gray_concrete', name: '淡灰色混凝土', value: 'concrete'},
+                    {type: 'cyan_concrete', name: '青色混凝土', value: 'concrete'},
+                    {type: 'purple_concrete', name: '紫色混凝土', value: 'concrete'},
+                    {type: 'blue_concrete', name: '蓝色混凝土', value: 'concrete'},
+                    {type: 'brown_concrete', name: '棕色混凝土', value: 'concrete'},
+                    {type: 'green_concrete', name: '绿色混凝土', value: 'concrete'},
+                    {type: 'red_concrete', name: '红色混凝土', value: 'concrete'},
+                    {type: 'black_concrete', name: '黑色混凝土', value: 'concrete'}
+                ],
+                'glass': [
+                    {type: 'glass', name: '玻璃', value: 'glass'},
+                    {type: 'white_stained_glass', name: '白色染色玻璃', value: 'glass'},
+                    {type: 'orange_stained_glass', name: '橙色染色玻璃', value: 'glass'},
+                    {type: 'magenta_stained_glass', name: '品红色染色玻璃', value: 'glass'},
+                    {type: 'light_blue_stained_glass', name: '淡蓝色染色玻璃', value: 'glass'},
+                    {type: 'yellow_stained_glass', name: '黄色染色玻璃', value: 'glass'},
+                    {type: 'lime_stained_glass', name: '黄绿色染色玻璃', value: 'glass'},
+                    {type: 'pink_stained_glass', name: '粉红色染色玻璃', value: 'glass'},
+                    {type: 'gray_stained_glass', name: '灰色染色玻璃', value: 'glass'},
+                    {type: 'light_gray_stained_glass', name: '淡灰色染色玻璃', value: 'glass'},
+                    {type: 'cyan_stained_glass', name: '青色染色玻璃', value: 'glass'},
+                    {type: 'purple_stained_glass', name: '紫色染色玻璃', value: 'glass'},
+                    {type: 'blue_stained_glass', name: '蓝色染色玻璃', value: 'glass'},
+                    {type: 'brown_stained_glass', name: '棕色染色玻璃', value: 'glass'},
+                    {type: 'green_stained_glass', name: '绿色染色玻璃', value: 'glass'},
+                    {type: 'red_stained_glass', name: '红色染色玻璃', value: 'glass'},
+                    {type: 'black_stained_glass', name: '黑色染色玻璃', value: 'glass'}
+                ]
+            };
+            
+            return detailedOptions[blockType] || [{type: blockType, name: getBlockDisplayName(blockType), value: blockType}];
+        }
+
+        // 处理登录
+        async function handleLogin(username, password) {
+            // 这里可以向后端验证用户信息，当前为模拟实现
+            const userData = {
+                username: username,
+                password: password, // 注意：实际应用中不应存储明文密码
+                loginTime: new Date().toISOString()
+            };
+            localStorage.setItem('currentUser', JSON.stringify(userData));
+            document.getElementById('username').textContent = username;
+            // 隐藏登录按钮，显示登出按钮
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'inline-block';
+            hideLoginModal();
+            showMessage('登录成功', '欢迎回来，' + username, 'success');
+        }
+
+        // 处理登出
+        function handleLogout() {
+            localStorage.removeItem('currentUser');
+            document.getElementById('username').textContent = '游客';
+            // 显示登录按钮，隐藏登出按钮
+            document.getElementById('loginBtn').style.display = 'inline-block';
+            document.getElementById('logoutBtn').style.display = 'none';
+            showMessage('登出成功', '您已成功登出', 'success');
+        }
+
+        // 文件选择处理
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('originalPreview').src = event.target.result;
+                    imgOri = event.target.result;
+                    // 显示图片预览区域
+                    document.getElementById('previewSection').style.display = 'block';
+                    showMessage('图片上传成功', '已成功加载图片', 'success');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 获取方块图标
+        function getBlockIcon(blockType) {
+            // 根据方块类型返回相应的图标
+            const icons = {
+                'wool': '<i class="fas fa-square" style="color: #e53935;"></i>', // 红色方块代表羊毛
+                'concrete': '<i class="fas fa-square" style="color: #8d6e63;"></i>', // 棕色方块代表混凝土
+                'glass': '<i class="fas fa-square" style="color: #80deea; opacity: 0.7;"></i>', // 透明蓝色代表玻璃
+                'stone': '<i class="fas fa-square" style="color: #78909c;"></i>', // 灰色代表石头
+                'wood': '<i class="fas fa-square" style="color: #8d6e63;"></i>', // 棕色代表木头
+                'ore': '<i class="fas fa-square" style="color: #546e7a;"></i>', // 深灰色代表矿石
+                'natural': '<i class="fas fa-square" style="color: #7cb342;"></i>', // 绿色代表自然方块
+                'plants': '<i class="fas fa-leaf" style="color: #66bb6a;"></i>', // 绿叶代表植物
+                'terracotta': '<i class="fas fa-square" style="color: #ab47bc;"></i>', // 紫色代表陶瓦
+                'glazed_terracotta': '<i class="fas fa-square" style="color: #ff7043;"></i>', // 橙色代表带釉陶瓦
+                'concrete_powder': '<i class="fas fa-square" style="color: #d7ccc8;"></i>', // 米色代表混凝土粉末
+                'carpet': '<i class="fas fa-square" style="color: #bcaaa4;"></i>', // 浅棕色代表地毯
+                'shulker_box': '<i class="fas fa-cube" style="color: #b05dfb;"></i>', // 紫色代表潜影盒
+                'bed': '<i class="fas fa-bed" style="color: #ef5350;"></i>', // 红色代表床
+                'banner': '<i class="fas fa-flag" style="color: #7e57c2;"></i>' // 紫色代表旗帜
+            };
+            
+            // 如果有特定图标则返回，否则返回默认图标
+            return icons[blockType] || '<i class="fas fa-cube" style="color: #9e9e9e;"></i>';
+        }
+
+        // 获取方块中文显示名称
+        function getBlockDisplayName(blockType) {
+            const names = {
+                'wool': '羊毛',
+                'concrete': '混凝土',
+                'glass': '玻璃',
+                'stone': '石头',
+                'wood': '木材',
+                'ore': '矿石',
+                'natural': '自然',
+                'plants': '植物',
+                'terracotta': '陶瓦',
+                'glazed_terracotta': '带釉陶瓦',
+                'concrete_powder': '混凝土粉末',
+                'carpet': '地毯',
+                'shulker_box': '潜影盒',
+                'bed': '床',
+                'banner': '旗帜'
+            };
+            
+            return names[blockType] || blockType;
+        }
+
+        // 显示消息（替换模态框）
+        function showMessage(title, message, type = 'info') {
+            // 创建临时消息元素
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 6px;
+                color: white;
+                z-index: 3000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                font-weight: 500;
+                min-width: 250px;
+                max-width: 400px;
+                animation: slideInRight 0.3s ease;
+            `;
+            
+            // 根据类型设置背景色
+            if (type === 'success') {
+                messageDiv.style.background = '#2ecc71';
+            } else if (type === 'error') {
+                messageDiv.style.background = '#e74c3c';
+            } else if (type === 'warning') {
+                messageDiv.style.background = '#f39c12';
+            } else {
+                messageDiv.style.background = '#3498db';
+            }
+            
+            messageDiv.innerHTML = `<strong>${title}</strong><br>${message}`;
+            document.body.appendChild(messageDiv);
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                messageDiv.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (messageDiv.parentNode) {
+                        messageDiv.parentNode.removeChild(messageDiv);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOutRight {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 获取可用方块类型
+        async function loadAvailableBlocks() {
+            try {
+                const response = await fetch('/api/blocks');
+                const blocks = await response.json();
+                allBlocks = blocks;
+                
+                const blockSelection = document.getElementById('blockSelection');
+                blockSelection.innerHTML = ''; // 清空现有选项
+                
+                blocks.forEach(block => {
+                    const blockItem = document.createElement('div');
+                    blockItem.className = 'block-item';
+                    
+
+                    
+                    const blockName = document.createElement('div');
+                    blockName.textContent = getBlockDisplayName(block);
+                    
+                    blockItem.appendChild(blockName);
+                    blockItem.dataset.value = block;
+                    blockItem.dataset.blocktype = block; // 添加数据属性用于详细选择
+                    
+                    if (selectedBlocks.includes(block)) {
+                        blockItem.classList.add('selected');
+                    }
+                    
+                    // 添加双击事件用于详细选择
+                    blockItem.addEventListener('dblclick', function() {
+                        const blockType = this.dataset.blocktype;
+                        showBlockDetailModal(blockType);
+                    });
+                    
+                    // 单击事件用于基本选择
+                    blockItem.addEventListener('click', function() {
+                        this.classList.toggle('selected');
+                        const blockValue = this.dataset.value;
+                        
+                        if (this.classList.contains('selected')) {
+                            if (!selectedBlocks.includes(blockValue)) {
+                                selectedBlocks.push(blockValue);
+                            }
+                        } else {
+                            selectedBlocks = selectedBlocks.filter(b => b !== blockValue);
+                        }
+                    });
+                    
+                    blockSelection.appendChild(blockItem);
+                });
+                
+                // 默认选择前两个选项（如果可用）
+                if (blocks.length >= 2) {
+                    selectedBlocks = [blocks[0], blocks[1]];
+                    // 更新UI选中状态
+                    document.querySelectorAll('.block-item').forEach((item, index) => {
+                        if (index < 2) {
+                            item.classList.add('selected');
+                        }
+                    });
+                } else if (blocks.length > 0) {
+                    selectedBlocks = [blocks[0]];
+                    document.querySelectorAll('.block-item')[0].classList.add('selected');
+                }
+            } catch (error) {
+                console.error('加载方块类型失败:', error);
+            }
+        }
+
+        // 开始转换
+        async function startConversion() {
+            if (!imgOri) {
+                showMessage('错误', '请先上传图片', 'error');
+                return;
+            }
+            if (selectedBlocks.length === 0) {
+                showMessage('错误', '请至少选择一个方块类型', 'error');
+                return;
+            }
+
+            isConverting = true;
+            
+                    // 更新按钮状态
+                    document.getElementById('startConversion').disabled = true;
+                    document.getElementById('downloadBtn').disabled = true;
+                    
+                    // 显示进度区域
+                    document.getElementById('progressSection').style.display = 'block';
+                    document.getElementById('progressLogs').innerHTML = '';            
+            try {
+                // 创建FormData发送到后端
+                const formData = new FormData();
+                const fileInput = document.getElementById('fileInput');
+                const file = fileInput.files[0];
+                formData.append('image', file);
+                formData.append('width', document.getElementById('width').value || 128);
+                formData.append('height', document.getElementById('height').value || 128);
+                formData.append('format', document.getElementById('format').value);
+                
+                // 添加选中的方块
+                selectedBlocks.forEach(block => {
+                    formData.append('blocks[]', block);
+                });
+                
+                // 添加用户名信息
+                const user = localStorage.getItem('currentUser');
+                if (user) {
+                    try {
+                        const userData = JSON.parse(user);
+                        formData.append('username', userData.username);
+                    } catch (e) {
+                        console.error('解析用户信息失败:', e);
+                        formData.append('username', '匿名用户');
+                    }
+                } else {
+                    formData.append('username', '匿名用户');
+                }
+                
+                // 发送转换请求
+                const response = await fetch('/api/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 开始轮询进度
+                    await pollProgress(result.task_id);
+                } else {
+                    throw new Error(result.error || '转换请求失败');
+                }
+            } catch (error) {
+                console.error('转换失败:', error);
+                updateProgress(0, `错误: ${error.message}`, 'error');
+                addProgressLog(`❌ 转换失败: ${error.message}`);
+                
+                // 恢复按钮状态
+                isConverting = false;
+                document.getElementById('startConversion').disabled = false;
+            }
+        }
+
+        // 轮询转换进度
+        async function pollProgress(taskId) {
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/progress/${taskId}`);
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        clearInterval(pollInterval);
+                        updateProgress(0, `错误: ${data.error}`, 'error');
+                        addProgressLog(`❌ ${data.error}`);
+                        
+                        // 恢复按钮状态
+                        isConverting = false;
+                        document.getElementById('startConversion').disabled = false;
+                        return;
+                    }
+                    
+                    // 更新进度
+                    updateProgress(data.progress, data.message);
+                    if (data.logs) {
+                        updateProgressLogs(data.logs);
+                    }
+                    
+                    // 根据进度设置样式
+                    const progressBar = document.getElementById('progressBar');
+                    if (data.progress < 30) {
+                        progressBar.className = 'progress-bar bg-info';
+                    } else if (data.progress < 70) {
+                        progressBar.className = 'progress-bar bg-primary';
+                    } else if (data.progress < 100) {
+                        progressBar.className = 'progress-bar bg-success';
+                    } else {
+                        progressBar.className = 'progress-bar bg-success';
+                    }
+                    
+                    // 转换完成
+                    if (!data.is_running && data.progress === 100) {
+                        clearInterval(pollInterval);
+                        updateProgress(100, '转换完成！');
+                        addProgressLog('✅ 转换成功完成!');
+                        
+                        // 保存下载链接
+                        downloadTaskId = taskId;
+                        
+                        // 启用下载和上传市场按钮
+                        document.getElementById('downloadBtn').disabled = false;
+                        document.getElementById('uploadToMarketBtn').disabled = false;
+                        
+                        // 生成像素化效果预览
+                        generatePixelatedPreview();
+                        
+                        // 显示方块统计（模拟数据，实际应从后端获取）
+                        showCounter({ 'wool': 100, 'concrete': 50, 'glass': 25 });
+                        
+                        // 恢复开始按钮状态
+                        isConverting = false;
+                        document.getElementById('startConversion').disabled = false;
+                    }
+                } catch (error) {
+                    console.error('获取进度失败:', error);
+                    clearInterval(pollInterval);
+                    updateProgress(0, `获取进度失败: ${error.message}`, 'error');
+                    addProgressLog(`❌ 获取进度失败: ${error.message}`);
+                    
+                    // 恢复按钮状态
+                    isConverting = false;
+                    document.getElementById('startConversion').disabled = false;
+                }
+            }, 1000);
+        }
+
+        // 更新进度
+        function updateProgress(progress, message) {
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            document.getElementById('progressBar').textContent = `${progress}%`;
+            document.getElementById('progressMessage').textContent = message;
+        }
+
+        // 更新进度日志
+        function updateProgressLogs(logs) {
+            const logsContainer = document.getElementById('progressLogs');
+            logsContainer.innerHTML = '';
+            
+            logs.forEach((log, index) => {
+                const logElement = document.createElement('div');
+                logElement.className = 'log-entry';
+                
+                // 根据日志内容添加样式
+                if (log.includes('✅')) {
+                    logElement.className += ' log-success';
+                } else if (log.includes('❌')) {
+                    logElement.className += ' log-error';
+                } else if (log.includes('⚠️')) {
+                    logElement.className += ' log-warning';
+                } else if (log.includes('🔄') || log.includes('🚀')) {
+                    logElement.className += ' log-info';
+                }
+                
+                logElement.innerHTML = log.replace(/\n/g, '<br>'); // 修复换行问题
+                
+                logsContainer.appendChild(logElement);
+            });
+            
+            // 自动滚动到底部
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        // 添加进度日志
+        function addProgressLog(log) {
+            const logsContainer = document.getElementById('progressLogs');
+            
+            const logElement = document.createElement('div');
+            logElement.className = 'log-entry';
+            
+            // 根据日志内容添加样式
+            if (log.includes('✅')) {
+                logElement.className += ' log-success';
+            } else if (log.includes('❌')) {
+                logElement.className += ' log-error';
+            } else if (log.includes('⚠️')) {
+                logElement.className += ' log-warning';
+            } else if (log.includes('🔄') || log.includes('🚀')) {
+                logElement.className += ' log-info';
+            }
+            
+            logElement.innerHTML = log.replace(/\n/g, '<br>'); // 修复换行问题
+            
+            logsContainer.appendChild(logElement);
+            
+            // 自动滚动到底部
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        // 生成像素化效果预览
+        function generatePixelatedPreview() {
+            const originalImg = document.getElementById('originalPreview');
+            const resultCanvas = document.createElement('canvas');
+            const resultCtx = resultCanvas.getContext('2d');
+            
+            // 设置画布尺寸为用户指定的尺寸
+            const targetWidth = parseInt(document.getElementById('width').value) || 128;
+            const targetHeight = parseInt(document.getElementById('height').value) || 128;
+            
+            resultCanvas.width = targetWidth;
+            resultCanvas.height = targetHeight;
+            
+            // 绘制原始图片到目标尺寸
+            resultCtx.imageSmoothingEnabled = false; // 关闭平滑以获得像素效果
+            resultCtx.drawImage(originalImg, 0, 0, targetWidth, targetHeight);
+            
+            // 将生成的像素化预览设置到结果预览图片
+            document.getElementById('resultPreview').src = resultCanvas.toDataURL('image/png');
+        }
+
+        // 显示方块统计
+        function showCounter(counter) {
+            const counterSection = document.getElementById('counterSection');
+            const counterContent = document.getElementById('counterContent');
+            
+            counterSection.style.display = 'block';
+            
+            let html = '';
+            for (const [block, count] of Object.entries(counter)) {
+                html += `<div class="counter-item">
+                    <span>${block}</span>
+                    <span class="badge" style="background: var(--primary-color); color: white; padding: 5px 12px; border-radius: 12px;">${count}</span>
+                </div>`;
+            }
+            
+            counterContent.innerHTML = html;
+        }
+
+        // 下载文件
+        async function downloadFile() {
+            if (!downloadTaskId) {
+                showMessage('错误', '请先完成转换', 'error');
+                return;
+            }
+            
+            // 重定向到下载链接
+            window.location.href = `/api/download/${downloadTaskId}`;
+        }
+
+
+
+        // 直接上传到市场
+        async function uploadToMarket() {
+            if (!downloadTaskId) {
+                showMessage('错误', '请先完成转换', 'error');
+                return;
+            }
+
+            // 检查是否已登录
+            const user = localStorage.getItem('currentUser');
+            if (!user) {
+                showMessage('请先登录', '需要登录后才能上传到市场', 'warning');
+                showLoginModal();
+                return;
+            }
+
+            try {
+                // 获取文件信息
+                const response = await fetch(`/api/download/${downloadTaskId}`);
+                if (!response.ok) {
+                    throw new Error(`下载失败: ${response.statusText}`);
+                }
+
+                // 将响应转换为blob
+                const blob = await response.blob();
+                const file = new File([blob], `converted_${Date.now()}.schem`, { type: 'application/octet-stream' });
+
+                // 创建FormData并上传到市场
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // 从本地存储获取用户信息
+                const userData = JSON.parse(user);
+                formData.append('author', userData.username);
+                
+                // 从当前页面获取一些默认信息
+                formData.append('title', `作品_${Date.now()}`);
+                formData.append('description', '通过SunPixel转换的结构文件');
+                
+                // 向市场上传端点发送请求（这里需要后端实现对应的API）
+                const uploadResponse = await fetch('/api/upload_to_market', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await uploadResponse.json();
+
+                if (result.success) {
+                    showMessage('上传成功', '文件已成功上传到市场', 'success');
+                } else {
+                    throw new Error(result.error || '上传失败');
+                }
+            } catch (error) {
+                console.error('上传到市场失败:', error);
+                showMessage('上传失败', error.message, 'error');
+            }
+        }
+
+        // 事件监听器
+        document.getElementById('startConversion').addEventListener('click', startConversion);
+        document.getElementById('downloadBtn').addEventListener('click', downloadFile);
+
+        document.getElementById('uploadToMarketBtn').addEventListener('click', uploadToMarket);
+        document.getElementById('loginBtn').addEventListener('click', showLoginModal);
+        document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+        document.getElementById('closeLoginModal').addEventListener('click', hideLoginModal);
+        
+        // 登录表单提交
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            handleLogin(username, password);
+        });
+        
+        document.getElementById('guestLoginBtn').addEventListener('click', function() {
+            handleLogin('游客_' + Date.now().toString().substr(-4), '');
+        });
+
+        // 监听本地存储变化，实现跨标签页登录状态同步
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'currentUser') {
+                checkLoginStatus(); // 当本地存储中的用户信息改变时，更新UI
+            }
+        });
+
+        // 点击模态框外部关闭
+        document.getElementById('loginModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideLoginModal();
+            }
+        });
+
+        // 详细方块选择模态框事件监听器
+        document.getElementById('closeBlockDetailModal').addEventListener('click', hideBlockDetailModal);
+        
+        document.getElementById('blockDetailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideBlockDetailModal();
+            }
+        });
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            checkLoginStatus();
+            
+            // 加载可用方块类型
+            loadAvailableBlocks();
+            
+            // 初始化时隐藏图片预览区域
+            document.getElementById('previewSection').style.display = 'none';
+            document.getElementById('progressSection').style.display = 'none';
+            document.getElementById('counterSection').style.display = 'none';
+        });
+    </script>
+</body>
+</html>

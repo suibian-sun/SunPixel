@@ -1,0 +1,20 @@
+#潜影盒
+
+{
+  "(20, 21, 25)": ["minecraft:black_shulker_box", 0],
+  "(233, 236, 239)": ["minecraft:white_shulker_box", 0],
+  "(160, 39, 34)": ["minecraft:red_shulker_box", 0],
+  "(103, 117, 53)": ["minecraft:green_shulker_box", 0],
+  "(53, 57, 157)": ["minecraft:blue_shulker_box", 0],
+  "(247, 233, 163)": ["minecraft:yellow_shulker_box", 0],
+  "(240, 118, 19)": ["minecraft:orange_shulker_box", 0],
+  "(121, 42, 172)": ["minecraft:purple_shulker_box", 0],
+  "(114, 71, 40)": ["minecraft:brown_shulker_box", 0],
+  "(62, 68, 71)": ["minecraft:gray_shulker_box", 0],
+  "(142, 142, 134)": ["minecraft:light_gray_shulker_box", 0],
+  "(21, 137, 145)": ["minecraft:cyan_shulker_box", 0],
+  "(189, 69, 180)": ["minecraft:magenta_shulker_box", 0],
+  "(84, 109, 27)": ["minecraft:lime_shulker_box", 0],
+  "(58, 175, 217)": ["minecraft:light_blue_shulker_box", 0],
+  "(216, 129, 152)": ["minecraft:pink_shulker_box", 0]
+}

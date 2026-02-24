@@ -1,0 +1,20 @@
+#混凝土粉末
+
+{
+  "(20, 21, 25)": ["minecraft:black_concrete_powder", 0],
+  "(233, 236, 239)": ["minecraft:white_concrete_powder", 0],
+  "(160, 39, 34)": ["minecraft:red_concrete_powder", 0],
+  "(103, 117, 53)": ["minecraft:green_concrete_powder", 0],
+  "(53, 57, 157)": ["minecraft:blue_concrete_powder", 0],
+  "(247, 233, 163)": ["minecraft:yellow_concrete_powder", 0],
+  "(240, 118, 19)": ["minecraft:orange_concrete_powder", 0],
+  "(121, 42, 172)": ["minecraft:purple_concrete_powder", 0],
+  "(114, 71, 40)": ["minecraft:brown_concrete_powder", 0],
+  "(62, 68, 71)": ["minecraft:gray_concrete_powder", 0],
+  "(142, 142, 134)": ["minecraft:light_gray_concrete_powder", 0],
+  "(21, 137, 145)": ["minecraft:cyan_concrete_powder", 0],
+  "(189, 69, 180)": ["minecraft:magenta_concrete_powder", 0],
+  "(84, 109, 27)": ["minecraft:lime_concrete_powder", 0],
+  "(58, 175, 217)": ["minecraft:light_blue_concrete_powder", 0],
+  "(216, 129, 152)": ["minecraft:pink_concrete_powder", 0]
+}

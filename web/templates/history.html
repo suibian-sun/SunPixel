@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>历史记录 - SunPixel</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --primary-dark: #2980b9;
+            --secondary-color: #2ecc71;
+            --dark-bg: #1a1a1a;
+            --light-bg: #f8f9fa;
+            --text-color: #333;
+            --text-light: #666;
+            --border-color: #ddd;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--light-bg);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+        
+        /* 导航栏 */
+        .navbar {
+            background: white;
+            box-shadow: var(--shadow);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo i {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        
+        .logo h1 {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 500;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover,
+        .nav-links a.active {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-info span {
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        /* 主要内容 */
+        .main-content {
+            max-width: 1200px;
+            margin: 80px auto 20px;
+            padding: 0 20px;
+        }
+        
+        .page-header {
+            margin-bottom: 30px;
+        }
+        
+        .page-header h2 {
+            font-size: 28px;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 历史记录容器 */
+        .history-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .history-header {
+            font-size: 22px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .history-header i {
+            margin-right: 10px;
+        }
+        
+        .history-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .history-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .history-item-info {
+            flex: 1;
+        }
+        
+        .history-item-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+        
+        .history-item-meta {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        .history-item-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-light);
+        }
+        
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 20px;
+            color: #ddd;
+        }
+        
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        /* 模态框 */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+        
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            transform: translateY(-20px);
+            transition: transform 0.3s;
+        }
+        
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            text-decoration: none;
+            text-align: center;
+            min-width: 120px;
+        }
+        
+        .btn:hover {
+            background: var(--primary-dark);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .history-container {
+                padding: 20px;
+            }
+            
+            .history-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .history-item-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-sun"></i>
+                <h1>SunPixel</h1>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/"><i class="fas fa-home"></i> 控制台</a></li>
+                <li><a href="/history" class="active"><i class="fas fa-history"></i> 历史记录</a></li>
+                <li><a href="/market"><i class="fas fa-store"></i> 市场</a></li>
+                <li><a href="/changelog"><i class="fas fa-clipboard-list"></i> 更新记录</a></li>
+            </ul>
+            <div class="user-info">
+                <span id="username">游客</span>
+                <button class="btn btn-outline btn-sm" id="loginBtn">登录</button>
+                <button class="btn btn-outline btn-sm" id="logoutBtn" style="display: none;">登出</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <div class="main-content">
+        <div class="page-header">
+            <h2><i class="fas fa-history"></i> 历史记录</h2>
+        </div>
+        
+        <div class="history-container">
+            <div class="history-header">
+                <i class="fas fa-list me-2"></i> 转换历史
+            </div>
+            
+            <ul class="history-list" id="historyList">
+                <!-- 动态加载历史记录 -->
+                <div id="historyEmpty" class="empty-state" style="display: none;">
+                    <i class="fas fa-history"></i>
+                    <h3>暂无历史记录</h3>
+                    <p>您还没有进行任何转换操作</p>
+                </div>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 登录模态框 -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <span class="modal-close" id="closeLoginModal">&times;</span>
+            <div class="modal-title">用户登录</div>
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" class="form-control" id="loginUsername" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-control" id="loginPassword" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="btn">登录</button>
+                <button type="button" class="btn btn-outline" id="guestLoginBtn">游客访问</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 检查登录状态
+        function checkLoginStatus() {
+            const user = localStorage.getItem('currentUser');
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    document.getElementById('username').textContent = userData.username;
+                    // 隐藏登录按钮，显示登出按钮
+                    document.getElementById('loginBtn').style.display = 'none';
+                    document.getElementById('logoutBtn').style.display = 'inline-block';
+                } catch (e) {
+                    console.error('解析用户信息失败:', e);
+                }
+            } else {
+                document.getElementById('username').textContent = '游客';
+                // 显示登录按钮，隐藏登出按钮
+                document.getElementById('loginBtn').style.display = 'inline-block';
+                document.getElementById('logoutBtn').style.display = 'none';
+            }
+        }
+
+        // 显示登录模态框
+        function showLoginModal() {
+            document.getElementById('loginModal').classList.add('active');
+        }
+
+        // 隐藏登录模态框
+        function hideLoginModal() {
+            document.getElementById('loginModal').classList.remove('active');
+        }
+
+        // 处理登录
+        function handleLogin(username, password) {
+            // 这里可以向后端验证用户信息，当前为模拟实现
+            const userData = {
+                username: username,
+                password: password, // 注意：实际应用中不应存储明文密码
+                loginTime: new Date().toISOString()
+            };
+            localStorage.setItem('currentUser', JSON.stringify(userData));
+            document.getElementById('username').textContent = username;
+            // 隐藏登录按钮，显示登出按钮
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'inline-block';
+            hideLoginModal();
+        }
+
+        // 处理登出
+        function handleLogout() {
+            localStorage.removeItem('currentUser');
+            document.getElementById('username').textContent = '游客';
+            // 显示登录按钮，隐藏登出按钮
+            document.getElementById('loginBtn').style.display = 'inline-block';
+            document.getElementById('logoutBtn').style.display = 'none';
+        }
+
+        // 加载历史记录
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/history');
+                const historyData = await response.json();
+                
+                const historyList = document.getElementById('historyList');
+                const historyEmpty = document.getElementById('historyEmpty');
+                
+                if (historyData.length === 0) {
+                    historyEmpty.style.display = 'block';
+                    historyList.innerHTML = '';
+                    return;
+                }
+                
+                historyEmpty.style.display = 'none';
+                
+                // 清空现有列表
+                historyList.innerHTML = '';
+                
+                // 为每个历史记录项创建列表项
+                historyData.forEach(item => {
+                    const historyItem = document.createElement('li');
+                    historyItem.className = 'history-item';
+                    historyItem.dataset.id = item.id; // 存储任务ID
+                    
+                    // 格式化维度信息
+                    const dimensions = item.dimensions ? `${item.dimensions[0]}x${item.dimensions[1]}` : '未知';
+                    
+                    historyItem.innerHTML = `
+                        <div class="history-item-info">
+                            <div class="history-item-title">${item.filename}</div>
+                            <div class="history-item-meta">${item.create_time} | 格式: .${item.format_type} | 尺寸: ${dimensions} | 方块: ${item.selected_blocks.join(', ')}</div>
+                        </div>
+                        <div class="history-item-actions">
+                            <button class="btn btn-outline" onclick="downloadHistoryItem('${item.id}')"><i class="fas fa-download"></i> 下载</button>
+                            <button class="btn btn-outline" onclick="uploadToMarketFromHistory('${item.id}')"><i class="fas fa-store"></i> 上传市场</button>
+                            <button class="btn btn-outline" onclick="deleteHistoryItem('${item.id}')"><i class="fas fa-trash"></i> 删除</button>
+                        </div>
+                    `;
+                    
+                    historyList.appendChild(historyItem);
+                });
+            } catch (error) {
+                console.error('加载历史记录失败:', error);
+                showMessage('加载失败', '无法加载历史记录: ' + error.message, 'error');
+            }
+        }
+
+        // 下载历史记录项目
+        async function downloadHistoryItem(taskId) {
+            try {
+                // 直接重定向到下载链接
+                window.location.href = `/api/download/${taskId}`;
+            } catch (error) {
+                console.error('下载失败:', error);
+                showMessage('下载失败', error.message, 'error');
+            }
+        }
+
+
+
+        // 将历史记录项目上传到市场
+        async function uploadToMarketFromHistory(taskId) {
+            // 检查是否已登录
+            const user = localStorage.getItem('currentUser');
+            if (!user) {
+                showMessage('请先登录', '需要登录后才能上传到市场', 'warning');
+                showLoginModal();
+                return;
+            }
+
+            try {
+                const userData = JSON.parse(user);
+                
+                // 创建FormData并上传到市场
+                const formData = new FormData();
+                formData.append('author', userData.username);
+                formData.append('title', `作品_${Date.now()}`);
+                formData.append('description', '通过SunPixel转换的结构文件');
+                
+                // 向市场上传端点发送请求
+                const uploadResponse = await fetch(`/api/history/${taskId}/upload_to_market`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await uploadResponse.json();
+
+                if (result.success) {
+                    showMessage('上传成功', '文件已成功上传到市场', 'success');
+                } else {
+                    throw new Error(result.error || '上传失败');
+                }
+            } catch (error) {
+                console.error('上传到市场失败:', error);
+                showMessage('上传失败', error.message, 'error');
+            }
+        }
+
+        // 删除历史记录项目
+        async function deleteHistoryItem(taskId) {
+            if (confirm('确定要删除这项历史记录吗？')) {
+                try {
+                    const response = await fetch(`/api/history/${taskId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // 从DOM中移除该项
+                        const itemElement = document.querySelector(`.history-item[data-id="${taskId}"]`);
+                        if (itemElement) {
+                            itemElement.remove();
+                        }
+                        
+                        // 检查是否还有其他项目，如果没有则显示空状态
+                        if (document.querySelectorAll('.history-item').length === 0) {
+                            document.getElementById('historyEmpty').style.display = 'block';
+                        }
+                        
+                        showMessage('删除成功', '历史记录项已删除', 'success');
+                    } else {
+                        throw new Error(result.error || '删除失败');
+                    }
+                } catch (error) {
+                    console.error('删除历史记录失败:', error);
+                    showMessage('删除失败', error.message, 'error');
+                }
+            }
+        }
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            checkLoginStatus();
+            
+            // 加载历史记录
+            loadHistory();
+            
+            // 登录相关事件监听器
+            document.getElementById('loginBtn').addEventListener('click', showLoginModal);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            document.getElementById('closeLoginModal').addEventListener('click', hideLoginModal);
+            
+            // 登录表单提交
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+                handleLogin(username, password);
+            });
+            
+            document.getElementById('guestLoginBtn').addEventListener('click', function() {
+                handleLogin('游客_' + Date.now().toString().substr(-4), '');
+            });
+
+            // 监听本地存储变化，实现跨标签页登录状态同步
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'currentUser') {
+                    checkLoginStatus(); // 当本地存储中的用户信息改变时，更新UI
+                }
+            });
+
+            // 点击模态框外部关闭
+            document.getElementById('loginModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    hideLoginModal();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
