@@ -582,10 +582,51 @@ jobs:
           path: build/
           retention-days: 1
 
-  push-to-release:
+  # 检查所有构建任务的状态
+  check-build-status:
     runs-on: ubuntu-latest
     needs: [linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
     if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
+    outputs:
+      should_push: ${{ steps.check.outputs.should_push }}
+    steps:
+      - name: Check all build jobs status
+        id: check
+        run: |
+          # 获取所有构建任务的状态
+          LINUX_AMD64="${{ needs.linux-amd64.result }}"
+          LINUX_ARM64="${{ needs.linux-arm64.result }}"
+          ANDROID_ARM64="${{ needs.android-arm64.result }}"
+          DARWIN_AMD64="${{ needs.darwin-amd64.result }}"
+          DARWIN_ARM64="${{ needs.darwin-arm64.result }}"
+          WINDOWS_AMD64="${{ needs.windows-amd64.result }}"
+          WINDOWS_ARM64="${{ needs.windows-arm64.result }}"
+          
+          # 计算失败的任务数量
+          FAILED_COUNT=0
+          [[ "$LINUX_AMD64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
+          [[ "$LINUX_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
+          [[ "$ANDROID_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
+          [[ "$DARWIN_AMD64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
+          [[ "$DARWIN_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
+          [[ "$WINDOWS_AMD64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
+          [[ "$WINDOWS_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
+          
+          echo "Failed jobs count: $FAILED_COUNT"
+          
+          # 只有当至少有一个任务失败时才跳过推送
+          if [ $FAILED_COUNT -gt 0 ]; then
+            echo "⚠️ 有 $FAILED_COUNT 个构建任务失败，跳过推送到 release 仓库"
+            echo "should_push=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ 所有 7 个构建任务均成功完成，将推送到 release 仓库"
+            echo "should_push=true" >> $GITHUB_OUTPUT
+          fi
+
+  push-to-release:
+    runs-on: ubuntu-latest
+    needs: [check-build-status, linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release') && needs.check-build-status.outputs.should_push == 'true'
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v4
