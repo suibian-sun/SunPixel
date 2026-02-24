@@ -634,12 +634,10 @@ jobs:
   # 推送任务 - 无论如何都执行
   push-to-release:
     runs-on: ubuntu-latest
-    # 移除所有条件，让这个任务总是运行
-    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
-    # 依赖检查任务，但不要求它成功
-    needs: [check-build-status]
-    # 即使依赖的任务失败也继续执行
+    # 合并所有条件，确保任务总是运行
     if: always() && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
+    # 依赖检查任务
+    needs: [check-build-status]
     steps:
       - name: Check if push is allowed
         id: check_push
