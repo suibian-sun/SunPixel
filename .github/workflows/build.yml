@@ -1,4 +1,4 @@
-name: Build on Push
+name: SunPixel Build on Push
 
 on:
   push:
@@ -130,55 +130,6 @@ jobs:
       - name: Prepare build directory
         run: mkdir -p build
 
-      - name: Configure GOPRIVATE and fetch modules
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          go env -w GOPRIVATE=github.com/suibian-sun/*
-          mkdir -p modules
-          echo "Checking local replace modules..."
-          if [ ! -f modules/WaterStructure/go.mod ]; then
-            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
-          else
-            echo "Found modules/WaterStructure"
-          fi
-          if [ ! -f modules/blocks/go.mod ]; then
-            echo "Cloning suibian-sun/blocks into modules/blocks"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
-          else
-            echo "Found modules/blocks"
-          fi
-          if [ ! -f modules/g79client/go.mod ]; then
-            echo "Cloning suibian-sun/g79client into modules/g79client"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
-          else
-            echo "Found modules/g79client"
-          fi
-          if [ ! -f modules/FunShuttler/go.mod ]; then
-            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
-          else
-            echo "Found modules/FunShuttler"
-          fi
-
       - name: Generate constants
         run: go generate ./constants
 
@@ -236,55 +187,6 @@ jobs:
 
       - name: Prepare build directory
         run: mkdir -p build
-
-      - name: Configure GOPRIVATE and fetch modules
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          go env -w GOPRIVATE=github.com/suibian-sun/*
-          mkdir -p modules
-          echo "Checking local replace modules..."
-          if [ ! -f modules/WaterStructure/go.mod ]; then
-            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
-          else
-            echo "Found modules/WaterStructure"
-          fi
-          if [ ! -f modules/blocks/go.mod ]; then
-            echo "Cloning suibian-sun/blocks into modules/blocks"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
-          else
-            echo "Found modules/blocks"
-          fi
-          if [ ! -f modules/g79client/go.mod ]; then
-            echo "Cloning suibian-sun/g79client into modules/g79client"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
-          else
-            echo "Found modules/g79client"
-          fi
-          if [ ! -f modules/FunShuttler/go.mod ]; then
-            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
-          else
-            echo "Found modules/FunShuttler"
-          fi
 
       - name: Generate constants
         run: go generate ./constants
@@ -350,55 +252,6 @@ jobs:
       - name: Prepare build directory
         run: mkdir -p build
 
-      - name: Configure GOPRIVATE and fetch modules
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          go env -w GOPRIVATE=github.com/suibian-sun/*
-          mkdir -p modules
-          echo "Checking local replace modules..."
-          if [ ! -f modules/WaterStructure/go.mod ]; then
-            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
-          else
-            echo "Found modules/WaterStructure"
-          fi
-          if [ ! -f modules/blocks/go.mod ]; then
-            echo "Cloning suibian-sun/blocks into modules/blocks"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
-          else
-            echo "Found modules/blocks"
-          fi
-          if [ ! -f modules/g79client/go.mod ]; then
-            echo "Cloning suibian-sun/g79client into modules/g79client"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
-          else
-            echo "Found modules/g79client"
-          fi
-          if [ ! -f modules/FunShuttler/go.mod ]; then
-            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
-          else
-            echo "Found modules/FunShuttler"
-          fi
-
       - name: Generate constants
         run: go generate ./constants
 
@@ -461,55 +314,6 @@ jobs:
       - name: Prepare build directory
         run: mkdir -p build
 
-      - name: Configure GOPRIVATE and fetch modules
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          go env -w GOPRIVATE=github.com/suibian-sun/*
-          mkdir -p modules
-          echo "Checking local replace modules..."
-          if [ ! -f modules/WaterStructure/go.mod ]; then
-            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
-          else
-            echo "Found modules/WaterStructure"
-          fi
-          if [ ! -f modules/blocks/go.mod ]; then
-            echo "Cloning suibian-sun/blocks into modules/blocks"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
-          else
-            echo "Found modules/blocks"
-          fi
-          if [ ! -f modules/g79client/go.mod ]; then
-            echo "Cloning suibian-sun/g79client into modules/g79client"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
-          else
-            echo "Found modules/g79client"
-          fi
-          if [ ! -f modules/FunShuttler/go.mod ]; then
-            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
-          else
-            echo "Found modules/FunShuttler"
-          fi
-
       - name: Generate constants
         run: go generate ./constants
 
@@ -561,55 +365,6 @@ jobs:
       - name: Prepare build directory
         run: mkdir -p build
 
-      - name: Configure GOPRIVATE and fetch modules
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          go env -w GOPRIVATE=github.com/suibian-sun/*
-          mkdir -p modules
-          echo "Checking local replace modules..."
-          if [ ! -f modules/WaterStructure/go.mod ]; then
-            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
-          else
-            echo "Found modules/WaterStructure"
-          fi
-          if [ ! -f modules/blocks/go.mod ]; then
-            echo "Cloning suibian-sun/blocks into modules/blocks"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
-          else
-            echo "Found modules/blocks"
-          fi
-          if [ ! -f modules/g79client/go.mod ]; then
-            echo "Cloning suibian-sun/g79client into modules/g79client"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
-          else
-            echo "Found modules/g79client"
-          fi
-          if [ ! -f modules/FunShuttler/go.mod ]; then
-            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
-          else
-            echo "Found modules/FunShuttler"
-          fi
-
       - name: Generate constants
         run: go generate ./constants
 
@@ -660,55 +415,6 @@ jobs:
 
       - name: Prepare build directory
         run: mkdir -p build
-
-      - name: Configure GOPRIVATE and fetch modules
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          go env -w GOPRIVATE=github.com/suibian-sun/*
-          mkdir -p modules
-          echo "Checking local replace modules..."
-          if [ ! -f modules/WaterStructure/go.mod ]; then
-            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
-          else
-            echo "Found modules/WaterStructure"
-          fi
-          if [ ! -f modules/blocks/go.mod ]; then
-            echo "Cloning suibian-sun/blocks into modules/blocks"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
-          else
-            echo "Found modules/blocks"
-          fi
-          if [ ! -f modules/g79client/go.mod ]; then
-            echo "Cloning suibian-sun/g79client into modules/g79client"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
-          else
-            echo "Found modules/g79client"
-          fi
-          if [ ! -f modules/FunShuttler/go.mod ]; then
-            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
-          else
-            echo "Found modules/FunShuttler"
-          fi
 
       - name: Generate constants
         run: go generate ./constants
@@ -768,55 +474,6 @@ jobs:
       - name: Prepare build directory
         run: mkdir -p build
 
-      - name: Configure GOPRIVATE and fetch modules
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          go env -w GOPRIVATE=github.com/suibian-sun/*
-          mkdir -p modules
-          echo "Checking local replace modules..."
-          if [ ! -f modules/WaterStructure/go.mod ]; then
-            echo "Cloning suibian-sun/WaterStructure into modules/WaterStructure"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/WaterStructure.git modules/WaterStructure
-          else
-            echo "Found modules/WaterStructure"
-          fi
-          if [ ! -f modules/blocks/go.mod ]; then
-            echo "Cloning suibian-sun/blocks into modules/blocks"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/blocks.git modules/blocks
-          else
-            echo "Found modules/blocks"
-          fi
-          if [ ! -f modules/g79client/go.mod ]; then
-            echo "Cloning suibian-sun/g79client into modules/g79client"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 https://${GH_PAT}@github.com/suibian-sun/g79client.git modules/g79client
-          else
-            echo "Found modules/g79client"
-          fi
-          if [ ! -f modules/FunShuttler/go.mod ]; then
-            echo "Cloning suibian-sun/FunShuttler into modules/FunShuttler"
-            if [ -z "${GH_PAT}" ]; then
-              echo "Error: GH_PAT secret is not set. Please add a Personal Access Token with repo scope to repository secrets as GH_PAT."
-              exit 1
-            fi
-            git clone --depth 1 --branch main https://${GH_PAT}@github.com/suibian-sun/FunShuttler.git modules/FunShuttler
-          else
-            echo "Found modules/FunShuttler"
-          fi
-
       - name: Generate constants
         run: go generate ./constants
 
@@ -842,7 +499,7 @@ jobs:
           gh release upload "$tag" build/SunPixel-cli_windows_arm64.exe --repo suibian-sun/SunPixel-Release --clobber
           gh release upload "$tag" build/SunPixel-cli_windows_arm64.exe.sha --repo suibian-sun/SunPixel-Release --clobber
 
-send-notification:
+  send-notification:
     runs-on: ubuntu-latest
     needs: [prepare-release, linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
     if: always()
