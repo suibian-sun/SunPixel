@@ -21,7 +21,7 @@ jobs:
       - name: Check and create release repository if not exists
         if: github.event_name == 'push'
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: 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
         run: |
           set -e
           # Check if repository exists
@@ -36,10 +36,10 @@ jobs:
       - name: Initialize release repository if empty
         if: github.event_name == 'push'
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_PAT: 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
         run: |
           set -e
-          git clone https://${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git release-repo
+          git clone https://oauth2:${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git release-repo
           cd release-repo
           if git rev-parse HEAD >/dev/null 2>&1; then
             echo "Release repo already initialized"
@@ -61,14 +61,6 @@ jobs:
           python-version: '3.11'
           
       - name: Send start email notification
-        env:
-          GITHUB_WORKFLOW: ${{ github.workflow }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_REF: ${{ github.ref }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           python3 << 'EOF'
           import os
@@ -192,6 +184,7 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
+          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -209,14 +202,15 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: go generate ./constants
+        run: cd current-repo && go generate ./constants
 
       - name: Build Linux amd64
         run: |
+          cd current-repo
           GOOS=linux GOARCH=amd64 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_linux_amd64 \
+            -o ../build/SunPixel-cli_linux_amd64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -248,6 +242,7 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
+          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -265,14 +260,15 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: go generate ./constants
+        run: cd current-repo && go generate ./constants
 
       - name: Build Linux arm64
         run: |
+          cd current-repo
           GOOS=linux GOARCH=arm64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_linux_arm64 \
+            -o ../build/SunPixel-cli_linux_arm64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -304,6 +300,7 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
+          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -327,18 +324,19 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: go generate ./constants
+        run: cd current-repo && go generate ./constants
 
       - name: Build Android arm64
         env:
           ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
         run: |
+          cd current-repo
           CC="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang"
           echo Using ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT
           GOOS=android GOARCH=arm64 CGO_ENABLED=1 CC="$CC" \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_android_arm64 \
+            -o ../build/SunPixel-cli_android_arm64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -370,6 +368,7 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
+          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -387,14 +386,15 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: go generate ./constants
+        run: cd current-repo && go generate ./constants
 
       - name: Build macOS amd64
         run: |
+          cd current-repo
           GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_darwin_amd64 \
+            -o ../build/SunPixel-cli_darwin_amd64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: Compute SHA512
@@ -419,6 +419,7 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
+          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -436,14 +437,15 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: go generate ./constants
+        run: cd current-repo && go generate ./constants
 
       - name: Build macOS arm64
         run: |
+          cd current-repo
           GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_darwin_arm64 \
+            -o ../build/SunPixel-cli_darwin_arm64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: Compute SHA512
@@ -468,6 +470,7 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
+          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -485,14 +488,15 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: go generate ./constants
+        run: cd current-repo && go generate ./constants
 
       - name: Build Windows amd64
         run: |
+          cd current-repo
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_windows_amd64.exe \
+            -o ../build/SunPixel-cli_windows_amd64.exe \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -524,6 +528,7 @@ jobs:
           fetch-depth: 0
           submodules: false
           lfs: false
+          path: current-repo
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -541,14 +546,15 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
-        run: go generate ./constants
+        run: cd current-repo && go generate ./constants
 
       - name: Build Windows arm64
         run: |
+          cd current-repo
           GOOS=windows GOARCH=arm64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_windows_arm64.exe \
+            -o ../build/SunPixel-cli_windows_arm64.exe \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: Compute SHA512
@@ -567,38 +573,42 @@ jobs:
     needs: [prepare-release, linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
     if: github.event_name == 'push' && !cancelled() && !failure()
     steps:
-      - name: Checkout release repo
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          set -e
-          git clone https://${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git release-repo
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: current-repo
           
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           
+      - name: Clone release repository
+        run: |
+          set -e
+          # 硬编码 PAT
+          GH_PAT="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"
+          git clone https://oauth2:${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git release-repo
+          
       - name: Copy cli and web directories
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           set -e
           cd release-repo
           
-          # Copy cli directory from main repo
-          git clone https://${GH_PAT}@github.com/${{ github.repository }}.git temp-repo
-          if [ -d "temp-repo/cli" ]; then
+          # 从已检出的当前仓库复制 cli 目录
+          if [ -d "../current-repo/cli" ]; then
             rm -rf cli
-            cp -r temp-repo/cli cli
+            cp -r ../current-repo/cli cli
             echo "Copied cli directory"
           fi
-          if [ -d "temp-repo/web" ]; then
+          
+          # 从已检出的当前仓库复制 web 目录
+          if [ -d "../current-repo/web" ]; then
             rm -rf web
-            cp -r temp-repo/web web
+            cp -r ../current-repo/web web
             echo "Copied web directory"
           fi
-          rm -rf temp-repo
           
       - name: Prepare binaries directory
         run: |
@@ -606,51 +616,70 @@ jobs:
           
       - name: Collect all binaries
         run: |
-          # Create binaries directory
+          set -e
+          # 创建二进制文件目录
           mkdir -p release-repo/binaries
           
-          # Copy all build artifacts to binaries directory
-          find artifacts -name "*.sha" -exec cp {} release-repo/binaries/ \;
-          find artifacts -name "SunPixel-cli_*" -exec cp {} release-repo/binaries/ \;
+          # 复制所有构建产物到二进制文件目录
+          if [ -d "artifacts" ]; then
+            # 查找所有构建目录
+            for build_dir in artifacts/*-build; do
+              if [ -d "$build_dir" ]; then
+                echo "Processing $build_dir"
+                cp -v $build_dir/* release-repo/binaries/ 2>/dev/null || true
+              fi
+            done
+          fi
           
-          # List collected files
+          # 列出收集的文件
           echo "Collected binaries:"
-          ls -la release-repo/binaries/
+          ls -la release-repo/binaries/ || echo "No binaries found"
+          
+      - name: Configure Git
+        run: |
+          git config --global user.name "sunpixel-bot"
+          git config --global user.email "bot@users.noreply.github.com"
           
       - name: Commit and push to release repo
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           set -e
           cd release-repo
           
-          # Add all changes
+          # 添加所有更改
           git add cli web binaries
           
-          # Check if there are changes to commit
+          # 检查是否有更改需要提交
           if git diff --quiet && git diff --cached --quiet; then
             echo "No changes to commit"
           else
             commit_msg="chore: release build from commit ${GITHUB_SHA:0:7}"
-            git -c user.name="sunpixel-bot" -c user.email="bot@users.noreply.github.com" commit -m "$commit_msg"
-            git push
+            git commit -m "$commit_msg"
+            
+            # 硬编码 PAT 用于推送
+            GH_PAT="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"
+            git push https://oauth2:${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git main
             echo "Changes pushed to release-repo"
           fi
           
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: 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
         run: |
           set -e
           tag="commit-${GITHUB_SHA}"
           
+          # 检查 Release 是否已存在
           if gh release view "$tag" --repo suibian-sun/SunPixel-Release >/dev/null 2>&1; then
             echo "Release $tag already exists, updating assets..."
           else
+            # 获取提交信息
+            cd current-repo
             commit_msg=$(git log -1 --pretty=%B)
+            cd ..
+            
+            # 创建 Release 说明
             {
-              printf 'Automated release from commit %s on ref %s\n' "$GITHUB_SHA" "$GITHUB_REF"
-              echo
+              printf 'Automated release from commit %s on ref %s\n\n' "$GITHUB_SHA" "$GITHUB_REF"
               echo "Commit message:"
               printf '%s\n' "$commit_msg"
               echo
@@ -663,6 +692,8 @@ jobs:
               echo "- Windows AMD64"
               echo "- Windows ARM64"
             } > release_notes.txt
+            
+            # 创建 Release
             gh release create "$tag" \
               --repo suibian-sun/SunPixel-Release \
               --title "SunPixel GO CLI $tag" \
@@ -671,20 +702,24 @@ jobs:
           
       - name: Upload all binaries to release
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: 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
         run: |
           set -e
           tag="commit-${GITHUB_SHA}"
           
-          # Upload all binaries and sha files
-          for file in release-repo/binaries/*; do
-            if [ -f "$file" ]; then
-              echo "Uploading $file"
-              gh release upload "$tag" "$file" --repo suibian-sun/SunPixel-Release --clobber
-            fi
-          done
-          
-          echo "All binaries uploaded successfully"
+          # 检查是否有二进制文件需要上传
+          if [ -d "release-repo/binaries" ] && [ "$(ls -A release-repo/binaries)" ]; then
+            # 上传所有二进制文件和 sha 文件
+            for file in release-repo/binaries/*; do
+              if [ -f "$file" ]; then
+                echo "Uploading $file"
+                gh release upload "$tag" "$file" --repo suibian-sun/SunPixel-Release --clobber
+              fi
+            done
+            echo "All binaries uploaded successfully"
+          else
+            echo "No binaries found to upload"
+          fi
 
   send-completion-notification:
     runs-on: ubuntu-latest
