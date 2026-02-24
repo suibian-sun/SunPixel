@@ -205,10 +205,6 @@ jobs:
       - name: Prepare build directory
         run: mkdir -p build
 
-      - name: Generate constants
-        working-directory: go
-        run: go generate ./constants
-
       - name: Build Linux amd64
         working-directory: go
         run: |
@@ -268,10 +264,6 @@ jobs:
 
       - name: Prepare build directory
         run: mkdir -p build
-
-      - name: Generate constants
-        working-directory: go
-        run: go generate ./constants
 
       - name: Build Linux arm64
         working-directory: go
@@ -339,10 +331,6 @@ jobs:
       - name: Prepare build directory
         run: mkdir -p build
 
-      - name: Generate constants
-        working-directory: go
-        run: go generate ./constants
-
       - name: Build Android arm64
         working-directory: go
         env:
@@ -407,10 +395,6 @@ jobs:
       - name: Prepare build directory
         run: mkdir -p build
 
-      - name: Generate constants
-        working-directory: go
-        run: go generate ./constants
-
       - name: Build macOS amd64
         working-directory: go
         run: |
@@ -464,10 +448,6 @@ jobs:
       - name: Prepare build directory
         run: mkdir -p build
 
-      - name: Generate constants
-        working-directory: go
-        run: go generate ./constants
-
       - name: Build macOS arm64
         working-directory: go
         run: |
@@ -520,10 +500,6 @@ jobs:
 
       - name: Prepare build directory
         run: mkdir -p build
-
-      - name: Generate constants
-        working-directory: go
-        run: go generate ./constants
 
       - name: Build Windows amd64
         working-directory: go
@@ -584,10 +560,6 @@ jobs:
 
       - name: Prepare build directory
         run: mkdir -p build
-
-      - name: Generate constants
-        working-directory: go
-        run: go generate ./constants
 
       - name: Build Windows arm64
         working-directory: go
