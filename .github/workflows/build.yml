@@ -582,94 +582,26 @@ jobs:
           path: build/
           retention-days: 1
 
-  # 检查所有构建任务的状态
-  check-build-status:
-    runs-on: ubuntu-latest
-    # 只要满足条件就运行，即使依赖的任务失败也要运行
-    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
-    # 需要等待所有构建任务完成，但不要求它们成功
-    needs: [linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
-    outputs:
-      should_push: ${{ steps.check.outputs.should_push }}
-    steps:
-      - name: Check all build jobs status
-        id: check
-        run: |
-          # 获取所有构建任务的状态
-          LINUX_AMD64="${{ needs.linux-amd64.result }}"
-          LINUX_ARM64="${{ needs.linux-arm64.result }}"
-          ANDROID_ARM64="${{ needs.android-arm64.result }}"
-          DARWIN_AMD64="${{ needs.darwin-amd64.result }}"
-          DARWIN_ARM64="${{ needs.darwin-arm64.result }}"
-          WINDOWS_AMD64="${{ needs.windows-amd64.result }}"
-          WINDOWS_ARM64="${{ needs.windows-arm64.result }}"
-          
-          echo "📊 构建任务状态："
-          echo "Linux AMD64: $LINUX_AMD64"
-          echo "Linux ARM64: $LINUX_ARM64"
-          echo "Android ARM64: $ANDROID_ARM64"
-          echo "macOS AMD64: $DARWIN_AMD64"
-          echo "macOS ARM64: $DARWIN_ARM64"
-          echo "Windows AMD64: $WINDOWS_AMD64"
-          echo "Windows ARM64: $WINDOWS_ARM64"
-          
-          # 检查是否有失败的任务
-          FAILED_COUNT=0
-          [[ "$LINUX_AMD64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
-          [[ "$LINUX_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
-          [[ "$ANDROID_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
-          [[ "$DARWIN_AMD64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
-          [[ "$DARWIN_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
-          [[ "$WINDOWS_AMD64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
-          [[ "$WINDOWS_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
-          
-          if [ $FAILED_COUNT -gt 0 ]; then
-            echo "⚠️ 有 $FAILED_COUNT 个构建任务失败"
-            echo "should_push=false" >> $GITHUB_OUTPUT
-          else
-            echo "✅ 所有构建任务均成功"
-            echo "should_push=true" >> $GITHUB_OUTPUT
-          fi
-
-  # 推送任务 - 无论如何都执行
+  # 推送任务 - 无论构建成功与否都执行
   push-to-release:
     runs-on: ubuntu-latest
-    # 合并所有条件，确保任务总是运行
-    if: always() && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
-    # 依赖检查任务
-    needs: [check-build-status]
+    # 只要满足基本条件就执行，无论构建任务成功与否
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
+    # 依赖所有构建任务，但不要求它们成功
+    needs: [linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
     steps:
-      - name: Check if push is allowed
-        id: check_push
-        run: |
-          SHOULD_PUSH="${{ needs.check-build-status.outputs.should_push }}"
-          
-          echo "🔍 检查推送条件："
-          echo "should_push: $SHOULD_PUSH"
-          
-          if [ "$SHOULD_PUSH" != "true" ]; then
-            echo "❌ 构建任务未全部成功，跳过推送操作"
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "✅ 所有构建任务成功，将执行推送操作"
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-          
       - name: Checkout current repository
-        if: steps.check_push.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           path: current-repo
           
       - name: Download all build artifacts
-        if: steps.check_push.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           
       - name: Clone release repository
-        if: steps.check_push.outputs.skip != 'true'
         run: |
           set -e
           # 硬编码 PAT
@@ -677,7 +609,6 @@ jobs:
           git clone https://oauth2:${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git release-repo
           
       - name: Copy cli and web directories
-        if: steps.check_push.outputs.skip != 'true'
         run: |
           set -e
           cd release-repo
@@ -697,12 +628,10 @@ jobs:
           fi
           
       - name: Prepare binaries directory
-        if: steps.check_push.outputs.skip != 'true'
         run: |
           mkdir -p release-repo/binaries
           
       - name: Collect all binaries
-        if: steps.check_push.outputs.skip != 'true'
         run: |
           set -e
           # 创建二进制文件目录
@@ -724,13 +653,11 @@ jobs:
           ls -la release-repo/binaries/ || echo "No binaries found"
           
       - name: Configure Git
-        if: steps.check_push.outputs.skip != 'true'
         run: |
           git config --global user.name "sunpixel-bot"
           git config --global user.email "bot@users.noreply.github.com"
           
       - name: Commit and push to release repo
-        if: steps.check_push.outputs.skip != 'true'
         run: |
           set -e
           cd release-repo
@@ -752,7 +679,6 @@ jobs:
           fi
           
       - name: Create GitHub Release
-        if: steps.check_push.outputs.skip != 'true'
         env:
           GH_TOKEN: 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
         run: |
@@ -792,7 +718,6 @@ jobs:
           fi
           
       - name: Upload all binaries to release
-        if: steps.check_push.outputs.skip != 'true'
         env:
           GH_TOKEN: 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
         run: |
@@ -812,15 +737,6 @@ jobs:
           else
             echo "No binaries found to upload"
           fi
-
-      - name: Skip notification
-        if: steps.check_push.outputs.skip == 'true'
-        run: |
-          echo "=========================================="
-          echo "⚠️ 推送任务已跳过"
-          echo "原因：部分构建任务失败"
-          echo "请检查构建日志了解详情"
-          echo "=========================================="
 
   send-completion-notification:
     runs-on: ubuntu-latest
