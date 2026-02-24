@@ -212,7 +212,7 @@ jobs:
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
             -o ../build/SunPixel-cli_linux_amd64 \
-            -v github.com/suibian-sun/SunPixel/go/cmd/main
+            -v ./cmd/main.go
 
       - name: UPX compress artifact
         uses: crazy-max/ghaction-upx@v3
@@ -272,7 +272,7 @@ jobs:
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
             -o ../build/SunPixel-cli_linux_arm64 \
-            -v github.com/suibian-sun/SunPixel/go/cmd/main
+            -v ./cmd/main.go
 
       - name: UPX compress artifact
         uses: crazy-max/ghaction-upx@v3
@@ -342,7 +342,7 @@ jobs:
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
             -o ../build/SunPixel-cli_android_arm64 \
-            -v github.com/suibian-sun/SunPixel/go/cmd/main
+            -v ./cmd/main.go
 
       - name: UPX compress artifact
         uses: crazy-max/ghaction-upx@v3
@@ -402,7 +402,7 @@ jobs:
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
             -o ../build/SunPixel-cli_darwin_amd64 \
-            -v github.com/suibian-sun/SunPixel/go/cmd/main
+            -v ./cmd/main.go
 
       - name: Compute SHA512
         run: |
@@ -455,7 +455,7 @@ jobs:
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
             -o ../build/SunPixel-cli_darwin_arm64 \
-            -v github.com/suibian-sun/SunPixel/go/cmd/main
+            -v ./cmd/main.go
 
       - name: Compute SHA512
         run: |
@@ -508,7 +508,7 @@ jobs:
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
             -o ../build/SunPixel-cli_windows_amd64.exe \
-            -v github.com/suibian-sun/SunPixel/go/cmd/main
+            -v ./cmd/main.go
 
       - name: UPX compress artifact
         uses: crazy-max/ghaction-upx@v3
@@ -568,7 +568,7 @@ jobs:
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
             -o ../build/SunPixel-cli_windows_arm64.exe \
-            -v github.com/suibian-sun/SunPixel/go/cmd/main
+            -v ./cmd/main.go
 
       - name: Compute SHA512
         run: |
