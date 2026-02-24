@@ -54,7 +54,6 @@ jobs:
 
   send-start-notification:
     runs-on: ubuntu-latest
-    # 移除对 prepare-release 的依赖，确保总是执行
     steps:
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -176,7 +175,6 @@ jobs:
 
   linux-amd64:
     runs-on: ubuntu-latest
-    # 移除所有依赖，确保始终执行
     needs: []
     steps:
       - name: Checkout
@@ -195,6 +193,12 @@ jobs:
       - name: Add Go bin to PATH
         run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      - name: Initialize Go module
+        run: |
+          cd go
+          go mod init github.com/suibian-sun/SunPixel/go 2>/dev/null || true
+          go mod tidy
+
       - name: Install garble
         run: go install mvdan.cc/garble@latest
 
@@ -202,14 +206,16 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
+        working-directory: go
         run: go generate ./constants
 
       - name: Build Linux amd64
+        working-directory: go
         run: |
           GOOS=linux GOARCH=amd64 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_linux_amd64 \
+            -o ../build/SunPixel-cli_linux_amd64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -221,7 +227,8 @@ jobs:
 
       - name: Compute SHA512
         run: |
-          sha512sum build/SunPixel-cli_linux_amd64 | awk '{print $1}' > build/SunPixel-cli_linux_amd64.sha
+          cd build
+          sha512sum SunPixel-cli_linux_amd64 | awk '{print $1}' > SunPixel-cli_linux_amd64.sha
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -232,7 +239,6 @@ jobs:
 
   linux-arm64:
     runs-on: ubuntu-latest
-    # 移除所有依赖，确保始终执行
     needs: []
     steps:
       - name: Checkout
@@ -251,6 +257,12 @@ jobs:
       - name: Add Go bin to PATH
         run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      - name: Initialize Go module
+        run: |
+          cd go
+          go mod init github.com/suibian-sun/SunPixel/go 2>/dev/null || true
+          go mod tidy
+
       - name: Install garble
         run: go install mvdan.cc/garble@latest
 
@@ -258,14 +270,16 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
+        working-directory: go
         run: go generate ./constants
 
       - name: Build Linux arm64
+        working-directory: go
         run: |
           GOOS=linux GOARCH=arm64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_linux_arm64 \
+            -o ../build/SunPixel-cli_linux_arm64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -277,7 +291,8 @@ jobs:
 
       - name: Compute SHA512
         run: |
-          sha512sum build/SunPixel-cli_linux_arm64 | awk '{print $1}' > build/SunPixel-cli_linux_arm64.sha
+          cd build
+          sha512sum SunPixel-cli_linux_arm64 | awk '{print $1}' > SunPixel-cli_linux_arm64.sha
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -288,7 +303,6 @@ jobs:
 
   android-arm64:
     runs-on: ubuntu-latest
-    # 移除所有依赖，确保始终执行
     needs: []
     steps:
       - name: Checkout
@@ -306,6 +320,12 @@ jobs:
 
       - name: Add Go bin to PATH
         run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Initialize Go module
+        run: |
+          cd go
+          go mod init github.com/suibian-sun/SunPixel/go 2>/dev/null || true
+          go mod tidy
 
       - name: Install garble
         run: go install mvdan.cc/garble@latest
@@ -320,9 +340,11 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
+        working-directory: go
         run: go generate ./constants
 
       - name: Build Android arm64
+        working-directory: go
         env:
           ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
         run: |
@@ -331,7 +353,7 @@ jobs:
           GOOS=android GOARCH=arm64 CGO_ENABLED=1 CC="$CC" \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_android_arm64 \
+            -o ../build/SunPixel-cli_android_arm64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -343,7 +365,8 @@ jobs:
 
       - name: Compute SHA512
         run: |
-          sha512sum build/SunPixel-cli_android_arm64 | awk '{print $1}' > build/SunPixel-cli_android_arm64.sha
+          cd build
+          sha512sum SunPixel-cli_android_arm64 | awk '{print $1}' > SunPixel-cli_android_arm64.sha
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -354,7 +377,6 @@ jobs:
 
   darwin-amd64:
     runs-on: ubuntu-latest
-    # 移除所有依赖，确保始终执行
     needs: []
     steps:
       - name: Checkout
@@ -373,6 +395,12 @@ jobs:
       - name: Add Go bin to PATH
         run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      - name: Initialize Go module
+        run: |
+          cd go
+          go mod init github.com/suibian-sun/SunPixel/go 2>/dev/null || true
+          go mod tidy
+
       - name: Install garble
         run: go install mvdan.cc/garble@latest
 
@@ -380,19 +408,22 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
+        working-directory: go
         run: go generate ./constants
 
       - name: Build macOS amd64
+        working-directory: go
         run: |
           GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_darwin_amd64 \
+            -o ../build/SunPixel-cli_darwin_amd64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: Compute SHA512
         run: |
-          sha512sum build/SunPixel-cli_darwin_amd64 | awk '{print $1}' > build/SunPixel-cli_darwin_amd64.sha
+          cd build
+          sha512sum SunPixel-cli_darwin_amd64 | awk '{print $1}' > SunPixel-cli_darwin_amd64.sha
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -403,7 +434,6 @@ jobs:
 
   darwin-arm64:
     runs-on: ubuntu-latest
-    # 移除所有依赖，确保始终执行
     needs: []
     steps:
       - name: Checkout
@@ -422,6 +452,12 @@ jobs:
       - name: Add Go bin to PATH
         run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      - name: Initialize Go module
+        run: |
+          cd go
+          go mod init github.com/suibian-sun/SunPixel/go 2>/dev/null || true
+          go mod tidy
+
       - name: Install garble
         run: go install mvdan.cc/garble@latest
 
@@ -429,19 +465,22 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
+        working-directory: go
         run: go generate ./constants
 
       - name: Build macOS arm64
+        working-directory: go
         run: |
           GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_darwin_arm64 \
+            -o ../build/SunPixel-cli_darwin_arm64 \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: Compute SHA512
         run: |
-          sha512sum build/SunPixel-cli_darwin_arm64 | awk '{print $1}' > build/SunPixel-cli_darwin_arm64.sha
+          cd build
+          sha512sum SunPixel-cli_darwin_arm64 | awk '{print $1}' > SunPixel-cli_darwin_arm64.sha
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -452,7 +491,6 @@ jobs:
 
   windows-amd64:
     runs-on: ubuntu-latest
-    # 移除所有依赖，确保始终执行
     needs: []
     steps:
       - name: Checkout
@@ -471,6 +509,12 @@ jobs:
       - name: Add Go bin to PATH
         run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      - name: Initialize Go module
+        run: |
+          cd go
+          go mod init github.com/suibian-sun/SunPixel/go 2>/dev/null || true
+          go mod tidy
+
       - name: Install garble
         run: go install mvdan.cc/garble@latest
 
@@ -478,14 +522,16 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
+        working-directory: go
         run: go generate ./constants
 
       - name: Build Windows amd64
+        working-directory: go
         run: |
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_windows_amd64.exe \
+            -o ../build/SunPixel-cli_windows_amd64.exe \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: UPX compress artifact
@@ -497,7 +543,8 @@ jobs:
 
       - name: Compute SHA512
         run: |
-          sha512sum build/SunPixel-cli_windows_amd64.exe | awk '{print $1}' > build/SunPixel-cli_windows_amd64.exe.sha
+          cd build
+          sha512sum SunPixel-cli_windows_amd64.exe | awk '{print $1}' > SunPixel-cli_windows_amd64.exe.sha
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -508,7 +555,6 @@ jobs:
 
   windows-arm64:
     runs-on: ubuntu-latest
-    # 移除所有依赖，确保始终执行
     needs: []
     steps:
       - name: Checkout
@@ -527,6 +573,12 @@ jobs:
       - name: Add Go bin to PATH
         run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      - name: Initialize Go module
+        run: |
+          cd go
+          go mod init github.com/suibian-sun/SunPixel/go 2>/dev/null || true
+          go mod tidy
+
       - name: Install garble
         run: go install mvdan.cc/garble@latest
 
@@ -534,19 +586,22 @@ jobs:
         run: mkdir -p build
 
       - name: Generate constants
+        working-directory: go
         run: go generate ./constants
 
       - name: Build Windows arm64
+        working-directory: go
         run: |
           GOOS=windows GOARCH=arm64 CGO_ENABLED=0 \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
-            -o build/SunPixel-cli_windows_arm64.exe \
+            -o ../build/SunPixel-cli_windows_arm64.exe \
             -v github.com/suibian-sun/SunPixel/go/cmd/main
 
       - name: Compute SHA512
         run: |
-          sha512sum build/SunPixel-cli_windows_arm64.exe | awk '{print $1}' > build/SunPixel-cli_windows_arm64.exe.sha
+          cd build
+          sha512sum SunPixel-cli_windows_arm64.exe | awk '{print $1}' > SunPixel-cli_windows_arm64.exe.sha
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
