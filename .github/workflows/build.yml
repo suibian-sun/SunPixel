@@ -585,12 +585,10 @@ jobs:
   # 检查所有构建任务的状态 - 这个任务必须始终运行
   check-build-status:
     runs-on: ubuntu-latest
-    # 只有在 Release 提交时才运行
-    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
+    # 合并条件：只有在 Release 提交时才运行，并且即使构建任务失败也要运行
+    if: always() && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
     # 需要等待所有构建任务完成
     needs: [linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
-    # 即使某些构建任务失败，这个任务也要运行
-    if: always() && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
     outputs:
       should_push: ${{ steps.check.outputs.should_push }}
       failure_count: ${{ steps.check.outputs.failure_count }}
