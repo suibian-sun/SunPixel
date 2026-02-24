@@ -582,13 +582,18 @@ jobs:
           path: build/
           retention-days: 1
 
-  # 检查所有构建任务的状态
+  # 检查所有构建任务的状态 - 这个任务必须始终运行
   check-build-status:
     runs-on: ubuntu-latest
-    needs: [linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
+    # 只有在 Release 提交时才运行
     if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
+    # 需要等待所有构建任务完成
+    needs: [linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
+    # 即使某些构建任务失败，这个任务也要运行
+    if: always() && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
     outputs:
       should_push: ${{ steps.check.outputs.should_push }}
+      failure_count: ${{ steps.check.outputs.failure_count }}
     steps:
       - name: Check all build jobs status
         id: check
@@ -602,8 +607,30 @@ jobs:
           WINDOWS_AMD64="${{ needs.windows-amd64.result }}"
           WINDOWS_ARM64="${{ needs.windows-arm64.result }}"
           
-          # 计算失败的任务数量
+          echo "📊 构建任务状态："
+          echo "Linux AMD64: $LINUX_AMD64"
+          echo "Linux ARM64: $LINUX_ARM64"
+          echo "Android ARM64: $ANDROID_ARM64"
+          echo "macOS AMD64: $DARWIN_AMD64"
+          echo "macOS ARM64: $DARWIN_ARM64"
+          echo "Windows AMD64: $WINDOWS_AMD64"
+          echo "Windows ARM64: $WINDOWS_ARM64"
+          
+          # 初始化计数器
+          SUCCESS_COUNT=0
           FAILED_COUNT=0
+          SKIPPED_COUNT=0
+          
+          # 统计成功数量
+          [[ "$LINUX_AMD64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
+          [[ "$LINUX_ARM64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
+          [[ "$ANDROID_ARM64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
+          [[ "$DARWIN_AMD64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
+          [[ "$DARWIN_ARM64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
+          [[ "$WINDOWS_AMD64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
+          [[ "$WINDOWS_ARM64" == "success" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT+1))
+          
+          # 统计失败数量
           [[ "$LINUX_AMD64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
           [[ "$LINUX_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
           [[ "$ANDROID_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
@@ -612,7 +639,21 @@ jobs:
           [[ "$WINDOWS_AMD64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
           [[ "$WINDOWS_ARM64" == "failure" ]] && FAILED_COUNT=$((FAILED_COUNT+1))
           
-          echo "Failed jobs count: $FAILED_COUNT"
+          # 统计跳过数量
+          [[ "$LINUX_AMD64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
+          [[ "$LINUX_ARM64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
+          [[ "$ANDROID_ARM64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
+          [[ "$DARWIN_AMD64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
+          [[ "$DARWIN_ARM64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
+          [[ "$WINDOWS_AMD64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
+          [[ "$WINDOWS_ARM64" == "skipped" ]] && SKIPPED_COUNT=$((SKIPPED_COUNT+1))
+          
+          echo "📈 统计结果："
+          echo "成功: $SUCCESS_COUNT"
+          echo "失败: $FAILED_COUNT"
+          echo "跳过: $SKIPPED_COUNT"
+          
+          echo "failure_count=$FAILED_COUNT" >> $GITHUB_OUTPUT
           
           # 只有当至少有一个任务失败时才跳过推送
           if [ $FAILED_COUNT -gt 0 ]; then
@@ -625,9 +666,27 @@ jobs:
 
   push-to-release:
     runs-on: ubuntu-latest
-    needs: [check-build-status, linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
-    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release') && needs.check-build-status.outputs.should_push == 'true'
+    # 只有在 Release 提交且 check-build-status 成功执行后才运行
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release')
+    # 只依赖 check-build-status，不直接依赖构建任务
+    needs: [check-build-status]
     steps:
+      - name: Check if push is allowed
+        run: |
+          SHOULD_PUSH="${{ needs.check-build-status.outputs.should_push }}"
+          FAILURE_COUNT="${{ needs.check-build-status.outputs.failure_count }}"
+          
+          echo "🔍 检查推送条件："
+          echo "should_push: $SHOULD_PUSH"
+          echo "failure_count: $FAILURE_COUNT"
+          
+          if [ "$SHOULD_PUSH" != "true" ]; then
+            echo "❌ 由于有 $FAILURE_COUNT 个构建任务失败，跳过推送"
+            exit 1
+          fi
+          
+          echo "✅ 所有构建任务成功，继续推送"
+          
       - name: Checkout current repository
         uses: actions/checkout@v4
         with:
