@@ -452,19 +452,10 @@ jobs:
           export GOARCH=arm64
           export CGO_ENABLED=0
           
-          # 不使用 garble 的 literals 和 tiny 选项，避免加密包问题
           garble -seed=random build \
             -ldflags="-s -w -checklinkname=0" \
             -o ../build/SunPixel-cli_windows_arm64.exe \
             -v ./cmd/main.go
-
-      - name: UPX compress artifact
-        uses: crazy-max/ghaction-upx@v3
-        with:
-          version: latest
-          files: build/SunPixel-cli_windows_arm64.exe
-          args: -fq
-        continue-on-error: true
 
       - name: Compute SHA512
         run: |
@@ -552,6 +543,8 @@ jobs:
           update_log=""
           if [ -f "UpdateLog.log" ]; then
             update_log=$(cat UpdateLog.log)
+            # 转义 HTML 特殊字符
+            update_log=$(echo "$update_log" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
             echo "Update log loaded"
           else
             echo "Warning: UpdateLog.log not found"
@@ -559,75 +552,74 @@ jobs:
           fi
           cd ..
           
+          # 获取分支名称
+          branch_name="${GITHUB_REF#refs/heads/}"
+          build_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          commit_sha="${GITHUB_SHA}"
+          
           # 创建卡片样式的 Release 说明
-          cat > release_notes.md << 'EOF'
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
-            
-            <!-- 发行内容卡片 -->
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 2px; margin-bottom: 24px;">
-              <div style="background: white; border-radius: 14px; padding: 24px;">
-                <h2 style="margin: 0 0 16px 0; color: #333; display: flex; align-items: center; gap: 8px;">
-                  <span style="font-size: 28px;">📦</span> 
-                  <span>发布内容</span>
-                </h2>
-                
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                  <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #667eea;">
-                    <h3 style="margin: 0 0 12px 0; color: #667eea; font-size: 18px;">🎯 二进制文件</h3>
-                    <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">
-                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_linux_amd64</code> - Linux AMD64</li>
-                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_linux_arm64</code> - Linux ARM64</li>
-                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_android_arm64</code> - Android ARM64</li>
-                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_darwin_amd64</code> - macOS AMD64</li>
-                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_darwin_arm64</code> - macOS ARM64</li>
-                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_windows_amd64.exe</code> - Windows AMD64</li>
-                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_windows_arm64.exe</code> - Windows ARM64</li>
-                    </ul>
-                  </div>
-                  
-                  <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #48bb78;">
-                    <h3 style="margin: 0 0 12px 0; color: #48bb78; font-size: 18px;">📚 源代码包</h3>
-                    <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">
-                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-python-web.zip</code> - Python & Web 源代码</li>
-                    </ul>
-                  </div>
-                </div>
-                
-                <div style="background: #fef5e7; border-radius: 12px; padding: 16px; border-left: 4px solid #f59e0b;">
-                  <h3 style="margin: 0 0 8px 0; color: #f59e0b; font-size: 18px;">ℹ️ 构建信息</h3>
-                  <p style="margin: 0; color: #666; line-height: 1.6;">
-                    <strong>提交 SHA:</strong> <code>${GITHUB_SHA}</code><br>
-                    <strong>分支:</strong> ${GITHUB_REF#refs/heads/}<br>
-                    <strong>构建时间:</strong> $(date -u '+%Y-%m-%d %H:%M:%S UTC')
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <!-- 更新日志卡片 -->
-            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 16px; padding: 2px;">
-              <div style="background: white; border-radius: 14px; padding: 24px;">
-                <h2 style="margin: 0 0 16px 0; color: #333; display: flex; align-items: center; gap: 8px;">
-                  <span style="font-size: 28px;">📝</span> 
-                  <span>更新日志</span>
-                </h2>
-                <div style="background: #fafafa; border-radius: 12px; padding: 20px; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; font-size: 14px; line-height: 1.6; color: #2c3e50; overflow-x: auto;">
-          EOF
-          
-          # 添加更新日志内容
-          echo "$update_log" | while IFS= read -r line; do
-            echo "          $line" >> release_notes.md
-          done
-          
-          cat >> release_notes.md << 'EOF'
-                </div>
-                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e9ecef; text-align: right;">
-                  <span style="color: #999; font-size: 12px;">📅 自动生成于 $(date -u '+%Y-%m-%d %H:%M:%S') UTC</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          EOF
+          cat > release_notes.md << EOF
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; max-width: 900px; margin: 0 auto;">
+
+  <!-- 发行内容卡片 -->
+  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 2px; margin-bottom: 24px;">
+    <div style="background: white; border-radius: 14px; padding: 24px;">
+      <h2 style="margin: 0 0 16px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 28px;">📦</span> 
+        <span>发布内容</span>
+      </h2>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #667eea;">
+          <h3 style="margin: 0 0 12px 0; color: #667eea; font-size: 18px;">🎯 二进制文件</h3>
+          <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">
+            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_linux_amd64</code> - Linux AMD64</li>
+            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_linux_arm64</code> - Linux ARM64</li>
+            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_android_arm64</code> - Android ARM64</li>
+            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_darwin_amd64</code> - macOS AMD64</li>
+            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_darwin_arm64</code> - macOS ARM64</li>
+            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_windows_amd64.exe</code> - Windows AMD64</li>
+            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_windows_arm64.exe</code> - Windows ARM64</li>
+          </ul>
+        </div>
+        
+        <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #48bb78;">
+          <h3 style="margin: 0 0 12px 0; color: #48bb78; font-size: 18px;">📚 源代码包</h3>
+          <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">
+            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-python-web.zip</code> - Python & Web 源代码</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div style="background: #fef5e7; border-radius: 12px; padding: 16px; border-left: 4px solid #f59e0b;">
+        <h3 style="margin: 0 0 8px 0; color: #f59e0b; font-size: 18px;">ℹ️ 构建信息</h3>
+        <p style="margin: 0; color: #666; line-height: 1.6;">
+          <strong>提交 SHA:</strong> <code>${commit_sha}</code><br>
+          <strong>分支:</strong> ${branch_name}<br>
+          <strong>构建时间:</strong> ${build_time}
+        </p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 更新日志卡片 -->
+  <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 16px; padding: 2px;">
+    <div style="background: white; border-radius: 14px; padding: 24px;">
+      <h2 style="margin: 0 0 16px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 28px;">📝</span> 
+        <span>更新日志</span>
+      </h2>
+      <div style="background: #fafafa; border-radius: 12px; padding: 20px; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; font-size: 14px; line-height: 1.6; color: #2c3e50; overflow-x: auto; white-space: pre-wrap;">
+${update_log}
+      </div>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e9ecef; text-align: right;">
+        <span style="color: #999; font-size: 12px;">📅 自动生成于 ${build_time}</span>
+      </div>
+    </div>
+  </div>
+  
+</div>
+EOF
           
           if gh release view "$tag" --repo suibian-sun/SunPixel-Release >/dev/null 2>&1; then
             echo "Release $tag already exists, updating assets..."
@@ -796,8 +788,8 @@ jobs:
                       </div>
                       <div class="section">
                           <h3>Job Status</h3>
-                          <tr>
-                              <tr><th>Job</th><th>Status</th>
+                           <table>
+                               <tr><th>Job</th><th>Status</th></tr>
           """
           for job_name, status in jobs_cn.items():
               display_name = job_display_names.get(job_name, job_name)
@@ -805,7 +797,7 @@ jobs:
               status_text = status_display_map.get(status, status)
               html_content += f'<tr><td>{display_name}</td><td class="{status_class}">{status_text}</td></tr>\n'
           html_content += f"""
-                          </table>
+                           </table>
                       </div>
                       <div class="section">
                           <h3>Links</h3>
