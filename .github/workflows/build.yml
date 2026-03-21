@@ -448,16 +448,32 @@ jobs:
       - name: Build Windows arm64
         working-directory: go
         run: |
-          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 \
-          garble -literals -tiny -seed=random build \
-            -ldflags "-s -w -checklinkname=0" \
+          export GOOS=windows
+          export GOARCH=arm64
+          export CGO_ENABLED=0
+          
+          # 不使用 garble 的 literals 和 tiny 选项，避免加密包问题
+          garble -seed=random build \
+            -ldflags="-s -w -checklinkname=0" \
             -o ../build/SunPixel-cli_windows_arm64.exe \
             -v ./cmd/main.go
+
+      - name: UPX compress artifact
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          version: latest
+          files: build/SunPixel-cli_windows_arm64.exe
+          args: -fq
+        continue-on-error: true
 
       - name: Compute SHA512
         run: |
           cd build
-          sha512sum SunPixel-cli_windows_arm64.exe | awk '{print $1}' > SunPixel-cli_windows_arm64.exe.sha
+          if [ -f "SunPixel-cli_windows_arm64.exe" ]; then
+            sha512sum SunPixel-cli_windows_arm64.exe | awk '{print $1}' > SunPixel-cli_windows_arm64.exe.sha
+          else
+            echo "" > SunPixel-cli_windows_arm64.exe.sha
+          fi
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -525,7 +541,7 @@ jobs:
           cd ..
           rm -rf package_temp
           
-      - name: Create GitHub Release
+      - name: Create GitHub Release with Card Style
         env:
           GH_TOKEN: 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
         run: |
@@ -539,30 +555,79 @@ jobs:
             echo "Update log loaded"
           else
             echo "Warning: UpdateLog.log not found"
-            update_log="No update log available"
+            update_log="No update log available for this build"
           fi
           cd ..
           
-          # 使用 echo 创建 release notes，避免 printf 参数问题
-          echo "## 📦 Release Contents" > release_notes.md
-          echo "" >> release_notes.md
-          echo "### Binaries" >> release_notes.md
-          echo "- **Linux AMD64** - \`SunPixel-cli_linux_amd64\`" >> release_notes.md
-          echo "- **Linux ARM64** - \`SunPixel-cli_linux_arm64\`" >> release_notes.md
-          echo "- **Android ARM64** - \`SunPixel-cli_android_arm64\`" >> release_notes.md
-          echo "- **macOS AMD64** - \`SunPixel-cli_darwin_amd64\`" >> release_notes.md
-          echo "- **macOS ARM64** - \`SunPixel-cli_darwin_arm64\`" >> release_notes.md
-          echo "- **Windows AMD64** - \`SunPixel-cli_windows_amd64.exe\`" >> release_notes.md
-          echo "- **Windows ARM64** - \`SunPixel-cli_windows_arm64.exe\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Source Package" >> release_notes.md
-          echo "- **Python & Web** - \`SunPixel-python-web.zip\` (Python and Web source code)" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "---" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## 📝 Update Log" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "$update_log" >> release_notes.md
+          # 创建卡片样式的 Release 说明
+          cat > release_notes.md << 'EOF'
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
+            
+            <!-- 发行内容卡片 -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 2px; margin-bottom: 24px;">
+              <div style="background: white; border-radius: 14px; padding: 24px;">
+                <h2 style="margin: 0 0 16px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 28px;">📦</span> 
+                  <span>发布内容</span>
+                </h2>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                  <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #667eea;">
+                    <h3 style="margin: 0 0 12px 0; color: #667eea; font-size: 18px;">🎯 二进制文件</h3>
+                    <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">
+                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_linux_amd64</code> - Linux AMD64</li>
+                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_linux_arm64</code> - Linux ARM64</li>
+                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_android_arm64</code> - Android ARM64</li>
+                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_darwin_amd64</code> - macOS AMD64</li>
+                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_darwin_arm64</code> - macOS ARM64</li>
+                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_windows_amd64.exe</code> - Windows AMD64</li>
+                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_windows_arm64.exe</code> - Windows ARM64</li>
+                    </ul>
+                  </div>
+                  
+                  <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #48bb78;">
+                    <h3 style="margin: 0 0 12px 0; color: #48bb78; font-size: 18px;">📚 源代码包</h3>
+                    <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">
+                      <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-python-web.zip</code> - Python & Web 源代码</li>
+                    </ul>
+                  </div>
+                </div>
+                
+                <div style="background: #fef5e7; border-radius: 12px; padding: 16px; border-left: 4px solid #f59e0b;">
+                  <h3 style="margin: 0 0 8px 0; color: #f59e0b; font-size: 18px;">ℹ️ 构建信息</h3>
+                  <p style="margin: 0; color: #666; line-height: 1.6;">
+                    <strong>提交 SHA:</strong> <code>${GITHUB_SHA}</code><br>
+                    <strong>分支:</strong> ${GITHUB_REF#refs/heads/}<br>
+                    <strong>构建时间:</strong> $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 更新日志卡片 -->
+            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 16px; padding: 2px;">
+              <div style="background: white; border-radius: 14px; padding: 24px;">
+                <h2 style="margin: 0 0 16px 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 28px;">📝</span> 
+                  <span>更新日志</span>
+                </h2>
+                <div style="background: #fafafa; border-radius: 12px; padding: 20px; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; font-size: 14px; line-height: 1.6; color: #2c3e50; overflow-x: auto;">
+          EOF
+          
+          # 添加更新日志内容
+          echo "$update_log" | while IFS= read -r line; do
+            echo "          $line" >> release_notes.md
+          done
+          
+          cat >> release_notes.md << 'EOF'
+                </div>
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e9ecef; text-align: right;">
+                  <span style="color: #999; font-size: 12px;">📅 自动生成于 $(date -u '+%Y-%m-%d %H:%M:%S') UTC</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          EOF
           
           if gh release view "$tag" --repo suibian-sun/SunPixel-Release >/dev/null 2>&1; then
             echo "Release $tag already exists, updating assets..."
@@ -695,10 +760,10 @@ jobs:
           <head>
               <meta charset="UTF-8">
               <style>
-                  body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; }}
                   .container {{ max-width: 650px; margin: 0 auto; padding: 20px; }}
-                  .header {{ background-color: {status_color}; color: white; padding: 15px; border-radius: 5px; text-align: center; }}
-                  .content {{ background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin-top: 20px; }}
+                  .header {{ background-color: {status_color}; color: white; padding: 15px; border-radius: 12px; text-align: center; }}
+                  .content {{ background-color: #f9f9f9; padding: 20px; border-radius: 12px; margin-top: 20px; }}
                   .section {{ margin-bottom: 20px; }}
                   .section h3 {{ color: #666; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
                   table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
@@ -719,20 +784,20 @@ jobs:
                       <div class="section">
                           <h3>Workflow Information</h3>
                           <table>
-                              <tr><th>Workflow</th><td>{workflow}</td></tr>
-                              <tr><th>Repository</th><td>{repository}</td></tr>
-                              <tr><th>Run Number</th><td>#{run_number}</td></tr>
-                              <tr><th>Run ID</th><td>{run_id}</td></tr>
-                              <tr><th>Event</th><td>{event_name}</td></tr>
-                              <tr><th>Ref</th><td>{ref}</td></tr>
-                              <tr><th>Commit SHA</th><td><code>{sha[:7]}</code></td></tr>
-                              <tr><th>Completed</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
+                              <tr><th>Workflow</th><td>{workflow}</td>
+                              <tr><th>Repository</th><td>{repository}</td>
+                              <tr><th>Run Number</th><td>#{run_number}</td>
+                              <tr><th>Run ID</th><td>{run_id}</td>
+                              <tr><th>Event</th><td>{event_name}</td>
+                              <tr><th>Ref</th><td>{ref}</td>
+                              <tr><th>Commit SHA</th><td><code>{sha[:7]}</code></td>
+                              <tr><th>Completed</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td>
                           </table>
                       </div>
                       <div class="section">
                           <h3>Job Status</h3>
-                          <table>
-                              <tr><th>Job</th><th>Status</th></tr>
+                          <tr>
+                              <tr><th>Job</th><th>Status</th>
           """
           for job_name, status in jobs_cn.items():
               display_name = job_display_names.get(job_name, job_name)
