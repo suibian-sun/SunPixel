@@ -536,7 +536,6 @@ jobs:
           update_log=""
           if [ -f "UpdateLog.log" ]; then
             update_log=$(cat UpdateLog.log)
-            update_log=$(echo "$update_log" | sed 's/`/\\`/g' | sed 's/\[/\\[/g' | sed 's/\]/\\]/g')
             echo "Update log loaded"
           else
             echo "Warning: UpdateLog.log not found"
@@ -544,21 +543,26 @@ jobs:
           fi
           cd ..
           
-          # 使用 printf 创建 release notes，避免 heredoc 语法问题
-          printf "## 📦 Release Contents\n\n" > release_notes.md
-          printf "### Binaries\n" >> release_notes.md
-          printf "- **Linux AMD64** - \`SunPixel-cli_linux_amd64\`\n" >> release_notes.md
-          printf "- **Linux ARM64** - \`SunPixel-cli_linux_arm64\`\n" >> release_notes.md
-          printf "- **Android ARM64** - \`SunPixel-cli_android_arm64\`\n" >> release_notes.md
-          printf "- **macOS AMD64** - \`SunPixel-cli_darwin_amd64\`\n" >> release_notes.md
-          printf "- **macOS ARM64** - \`SunPixel-cli_darwin_arm64\`\n" >> release_notes.md
-          printf "- **Windows AMD64** - \`SunPixel-cli_windows_amd64.exe\`\n" >> release_notes.md
-          printf "- **Windows ARM64** - \`SunPixel-cli_windows_arm64.exe\`\n\n" >> release_notes.md
-          printf "### Source Package\n" >> release_notes.md
-          printf "- **Python & Web** - \`SunPixel-python-web.zip\` (Python and Web source code)\n\n" >> release_notes.md
-          printf "---\n\n" >> release_notes.md
-          printf "## 📝 Update Log\n\n" >> release_notes.md
-          printf "%s\n" "$update_log" >> release_notes.md
+          # 使用 echo 创建 release notes，避免 printf 参数问题
+          echo "## 📦 Release Contents" > release_notes.md
+          echo "" >> release_notes.md
+          echo "### Binaries" >> release_notes.md
+          echo "- **Linux AMD64** - \`SunPixel-cli_linux_amd64\`" >> release_notes.md
+          echo "- **Linux ARM64** - \`SunPixel-cli_linux_arm64\`" >> release_notes.md
+          echo "- **Android ARM64** - \`SunPixel-cli_android_arm64\`" >> release_notes.md
+          echo "- **macOS AMD64** - \`SunPixel-cli_darwin_amd64\`" >> release_notes.md
+          echo "- **macOS ARM64** - \`SunPixel-cli_darwin_arm64\`" >> release_notes.md
+          echo "- **Windows AMD64** - \`SunPixel-cli_windows_amd64.exe\`" >> release_notes.md
+          echo "- **Windows ARM64** - \`SunPixel-cli_windows_arm64.exe\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Source Package" >> release_notes.md
+          echo "- **Python & Web** - \`SunPixel-python-web.zip\` (Python and Web source code)" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "---" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## 📝 Update Log" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "$update_log" >> release_notes.md
           
           if gh release view "$tag" --repo suibian-sun/SunPixel-Release >/dev/null 2>&1; then
             echo "Release $tag already exists, updating assets..."
@@ -763,5 +767,4 @@ jobs:
               print(f"Completion email sent to {MAIL_TO}")
           except Exception as e:
               print(f"Failed to send completion email: {str(e)}")
-          PYTHON_EOFtr(e)}")
           PYTHON_EOF
