@@ -49,127 +49,7 @@ jobs:
             git push -u origin main
           fi
 
-  send-start-notification:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          
-      - name: Send start email notification
-        run: |
-          python3 << 'EOF'
-          import os
-          import smtplib
-          from email.mime.text import MIMEText
-          from email.mime.multipart import MIMEMultipart
-          from datetime import datetime
-
-          # 硬编码邮件配置
-          MAIL_SERVER = 'smtp.163.com'
-          MAIL_PORT = 465
-          MAIL_USERNAME = 'ctigzs@163.com'
-          MAIL_AUTHORIZATION_CODE = 'LE2DccrtktrjNdLm'
-          MAIL_FROM_NAME = 'SunBot'
-          MAIL_TO = '3214837362@qq.com'
-
-          # Workflow information
-          workflow = os.getenv('GITHUB_WORKFLOW', '未知')
-          repository = os.getenv('GITHUB_REPOSITORY', '未知')
-          sha = os.getenv('GITHUB_SHA', '未知')
-          ref = os.getenv('GITHUB_REF', '未知')
-          run_id = os.getenv('GITHUB_RUN_ID', '未知')
-          run_number = os.getenv('GITHUB_RUN_NUMBER', '未知')
-          event_name = os.getenv('GITHUB_EVENT_NAME', '未知')
-
-          # Create email content in Chinese
-          subject = f"[开始构建] SunPixel CI/CD - 运行 #{run_number}"
-          
-          html_content = f"""
-          <html>
-          <head>
-              <meta charset="UTF-8">
-              <style>
-                  body {{ font-family: "Microsoft YaHei", Arial, sans-serif; line-height: 1.6; color: #333; }}
-                  .container {{ max-width: 650px; margin: 0 auto; padding: 20px; }}
-                  .header {{ background-color: #2196F3; color: white; padding: 15px; border-radius: 5px; text-align: center; }}
-                  .content {{ background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin-top: 20px; }}
-                  .section {{ margin-bottom: 20px; }}
-                  .section h3 {{ color: #666; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
-                  table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                  th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
-                  th {{ background-color: #f0f0f0; }}
-                  .footer {{ margin-top: 20px; padding: 10px; text-align: center; color: #999; font-size: 12px; }}
-              </style>
-          </head>
-          <body>
-              <div class="container">
-                  <div class="header">
-                      <h2>🚀 构建任务已开始</h2>
-                  </div>
-                  <div class="content">
-                      <div class="section">
-                          <h3>📋 工作流信息</h3>
-                          <table>
-                              <tr><th>工作流名称</th><td>{workflow}</td></tr>
-                              <tr><th>仓库</th><td>{repository}</td></tr>
-                              <tr><th>运行编号</th><td>#{run_number}</td></tr>
-                              <tr><th>运行 ID</th><td>{run_id}</td></tr>
-                              <tr><th>触发事件</th><td>{event_name}</td></tr>
-                              <tr><th>分支/引用</th><td>{ref}</td></tr>
-                              <tr><th>提交 SHA</th><td><code>{sha[:7]}</code></td></tr>
-                              <tr><th>开始时间</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
-                          </table>
-                      </div>
-                      <div class="section">
-                          <h3>🔧 构建任务</h3>
-                          <p>以下平台正在构建中：</p>
-                          <ul>
-                              <li>Linux AMD64</li>
-                              <li>Linux ARM64</li>
-                              <li>Android ARM64</li>
-                              <li>macOS AMD64</li>
-                              <li>macOS ARM64</li>
-                              <li>Windows AMD64</li>
-                              <li>Windows ARM64</li>
-                          </ul>
-                      </div>
-                      <div class="section">
-                          <h3>🔗 相关链接</h3>
-                          <p>
-                              <a href="https://github.com/{repository}/actions/runs/{run_id}">查看工作流运行详情</a>
-                          </p>
-                      </div>
-                  </div>
-                  <div class="footer">
-                      <p>此邮件由 {MAIL_FROM_NAME} 自动发送</p>
-                  </div>
-              </div>
-          </body>
-          </html>
-          """
-
-          # Create email message
-          msg = MIMEMultipart('alternative')
-          msg['Subject'] = subject
-          msg['From'] = f"{MAIL_FROM_NAME} <{MAIL_USERNAME}>"
-          msg['To'] = MAIL_TO
-
-          # Attach HTML content
-          html_part = MIMEText(html_content, 'html', 'utf-8')
-          msg.attach(html_part)
-
-          # Send email
-          try:
-              with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
-                  server.login(MAIL_USERNAME, MAIL_AUTHORIZATION_CODE)
-                  server.send_message(msg)
-              print(f"开始通知邮件已成功发送至 {MAIL_TO}")
-          except Exception as e:
-              print(f"发送开始通知邮件失败: {str(e)}")
-          EOF
-
+  # 所有构建任务保持不变
   linux-amd64:
     runs-on: ubuntu-latest
     needs: []
@@ -579,12 +459,10 @@ jobs:
           path: build/
           retention-days: 1
 
-  # 推送任务 - 移除所有条件，总是执行
+  # 推送任务
   push-to-release:
     runs-on: ubuntu-latest
-    # 移除所有条件，总是执行
     needs: [linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
-    # 如果任何一个依赖任务失败，这个任务仍然会执行
     if: always()
     steps:
       - name: Checkout current repository
@@ -597,13 +475,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          # 即使某些 artifacts 不存在，也继续执行
         continue-on-error: true
           
       - name: Clone release repository
         run: |
           set -e
-          # 硬编码 PAT
           GH_PAT="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"
           git clone https://oauth2:${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git release-repo
           
@@ -633,12 +509,10 @@ jobs:
       - name: Collect all binaries
         run: |
           set -e
-          # 创建二进制文件目录
           mkdir -p release-repo/binaries
           
           # 复制所有构建产物到二进制文件目录
           if [ -d "artifacts" ]; then
-            # 查找所有构建目录
             for build_dir in artifacts/*-build; do
               if [ -d "$build_dir" ]; then
                 echo "Processing $build_dir"
@@ -650,6 +524,39 @@ jobs:
           # 列出收集的文件
           echo "Collected binaries:"
           ls -la release-repo/binaries/ || echo "No binaries found"
+
+      # 新增：打包 Python 和 Web 目录为 ZIP
+      - name: Package Python and Web directories
+        run: |
+          set -e
+          
+          # 创建临时打包目录
+          mkdir -p package_temp
+          
+          # 复制 python 目录（如果存在）
+          if [ -d "current-repo/python" ]; then
+            cp -r current-repo/python package_temp/python
+            echo "Copied python directory"
+          fi
+          
+          # 复制 web 目录（如果存在）
+          if [ -d "current-repo/web" ]; then
+            cp -r current-repo/web package_temp/web
+            echo "Copied web directory"
+          fi
+          
+          # 打包成 zip 文件
+          cd package_temp
+          if [ "$(ls -A)" ]; then
+            zip -r ../release-repo/binaries/SunPixel-python-web.zip . -x "*.git*" "*.pyc" "*__pycache__*"
+            echo "打包完成：SunPixel-python-web.zip"
+          else
+            echo "没有找到 python 或 web 目录，跳过打包"
+          fi
+          cd ..
+          
+          # 清理临时目录
+          rm -rf package_temp
           
       - name: Configure Git
         run: |
@@ -671,7 +578,6 @@ jobs:
             commit_msg="chore: release build from commit ${GITHUB_SHA:0:7}"
             git commit -m "$commit_msg"
             
-            # 硬编码 PAT 用于推送
             GH_PAT="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"
             git push https://oauth2:${GH_PAT}@github.com/suibian-sun/SunPixel-Release.git main
             echo "Changes pushed to release-repo"
@@ -684,36 +590,59 @@ jobs:
           set -e
           tag="commit-${GITHUB_SHA}"
           
+          # 获取提交信息和更新日志
+          cd current-repo
+          commit_msg=$(git log -1 --pretty=%B)
+          
+          # 获取更新日志（如果文件存在）
+          update_log=""
+          if [ -f "UpdateLog.log" ]; then
+            # 取最新的 50 行（可根据需要调整）
+            update_log=$(tail -n 50 UpdateLog.log)
+            echo "更新日志内容："
+            echo "$update_log"
+          else
+            echo "警告：UpdateLog.log 文件不存在"
+          fi
+          cd ..
+          
+          # 创建 Release 说明
+          {
+            echo "# SunPixel 构建版本"
+            echo ""
+            echo "**提交 SHA**: \`${GITHUB_SHA}\`"
+            echo "**分支/标签**: ${GITHUB_REF}"
+            echo "**构建时间**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+            echo "## 📝 提交信息"
+            echo "\`\`\`"
+            echo "$commit_msg"
+            echo "\`\`\`"
+            echo ""
+            if [ -n "$update_log" ]; then
+              echo "## 📋 更新日志"
+              echo "\`\`\`"
+              echo "$update_log"
+              echo "\`\`\`"
+              echo ""
+            fi
+            echo "## 📦 包含的组件"
+            echo "- **CLI 二进制文件**：支持 7 个平台（Linux/AMD64, Linux/ARM64, Android/ARM64, macOS/AMD64, macOS/ARM64, Windows/AMD64, Windows/ARM64）"
+            echo "- **Python 与 Web 代码包**：已打包为 \`SunPixel-python-web.zip\`"
+            echo ""
+            echo "## 🔗 相关链接"
+            echo "- [GitHub Actions 运行记录](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+          } > release_notes.txt
+          
           # 检查 Release 是否已存在
           if gh release view "$tag" --repo suibian-sun/SunPixel-Release >/dev/null 2>&1; then
             echo "Release $tag already exists, updating assets..."
           else
-            # 获取提交信息
-            cd current-repo
-            commit_msg=$(git log -1 --pretty=%B)
-            cd ..
-            
-            # 创建 Release 说明
-            {
-              printf 'Automated release from commit %s on ref %s\n\n' "$GITHUB_SHA" "$GITHUB_REF"
-              echo "Commit message:"
-              printf '%s\n' "$commit_msg"
-              echo
-              echo "Build artifacts for all platforms:"
-              echo "- Linux AMD64"
-              echo "- Linux ARM64"
-              echo "- Android ARM64"
-              echo "- macOS AMD64"
-              echo "- macOS ARM64"
-              echo "- Windows AMD64"
-              echo "- Windows ARM64"
-            } > release_notes.txt
-            
-            # 创建 Release
             gh release create "$tag" \
               --repo suibian-sun/SunPixel-Release \
-              --title "SunPixel GO CLI $tag" \
+              --title "SunPixel Build ${GITHUB_SHA:0:7}" \
               --notes-file release_notes.txt
+            echo "Release created: $tag"
           fi
           
       - name: Upload all binaries to release
@@ -737,6 +666,7 @@ jobs:
             echo "No binaries found to upload"
           fi
 
+  # 完成通知 - 只发送完成和错误通知
   send-completion-notification:
     runs-on: ubuntu-latest
     needs: [linux-amd64, linux-arm64, android-arm64, darwin-amd64, darwin-arm64, windows-amd64, windows-arm64]
@@ -930,4 +860,4 @@ jobs:
               print(f"完成通知邮件已成功发送至 {MAIL_TO}")
           except Exception as e:
               print(f"发送完成通知邮件失败: {str(e)}")
-          EOF
+          EOF        
