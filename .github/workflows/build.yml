@@ -22,7 +22,6 @@ jobs:
           GH_TOKEN: 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
         run: |
           set -e
-          # Check if repository exists
           if gh repo view suibian-sun/SunPixel-Release >/dev/null 2>&1; then
             echo "Repository suibian-sun/SunPixel-Release already exists"
           else
@@ -141,15 +140,13 @@ jobs:
       - name: Prepare build directory
         run: mkdir -p build
 
-      - name: Build Linux arm64 (optimized - without literals/tiny)
+      - name: Build Linux arm64
         working-directory: go
         run: |
-          # 设置环境变量
           export GOOS=linux
           export GOARCH=arm64
           export CGO_ENABLED=0
           
-          # 使用 garble 但移除可能导致问题的 -literals 和 -tiny 选项
           garble -seed=random build \
             -ldflags="-s -w -checklinkname=0" \
             -o ../build/SunPixel-cli_linux_arm64 \
@@ -169,7 +166,6 @@ jobs:
           if [ -f "SunPixel-cli_linux_arm64" ]; then
             sha512sum SunPixel-cli_linux_arm64 | awk '{print $1}' > SunPixel-cli_linux_arm64.sha
           else
-            echo "Binary not found, creating empty sha file"
             echo "" > SunPixel-cli_linux_arm64.sha
           fi
 
@@ -224,7 +220,6 @@ jobs:
           ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
         run: |
           CC="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang"
-          echo Using ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT
           GOOS=android GOARCH=arm64 CGO_ENABLED=1 CC="$CC" \
           garble -literals -tiny -seed=random build \
             -ldflags "-s -w -checklinkname=0" \
@@ -489,15 +484,11 @@ jobs:
         continue-on-error: true
           
       - name: Prepare binaries directory
-        run: |
-          mkdir -p binaries
+        run: mkdir -p binaries
           
       - name: Collect all binaries
         run: |
           set -e
-          mkdir -p binaries
-          
-          # 复制所有构建产物到二进制文件目录
           if [ -d "artifacts" ]; then
             for build_dir in artifacts/*-build; do
               if [ -d "$build_dir" ]; then
@@ -506,41 +497,32 @@ jobs:
               fi
             done
           fi
-          
-          # 列出收集的文件
           echo "Collected binaries:"
           ls -la binaries/ || echo "No binaries found"
 
       - name: Package Python and Web directories
         run: |
           set -e
-          
-          # 创建临时打包目录
           mkdir -p package_temp
           
-          # 复制 python 目录（如果存在）
           if [ -d "current-repo/python" ]; then
             cp -r current-repo/python package_temp/python
             echo "Copied python directory"
           fi
           
-          # 复制 web 目录（如果存在）
           if [ -d "current-repo/web" ]; then
             cp -r current-repo/web package_temp/web
             echo "Copied web directory"
           fi
           
-          # 打包成 zip 文件
           cd package_temp
           if [ "$(ls -A)" ]; then
             zip -r ../binaries/SunPixel-python-web.zip . -x "*.git*" "*.pyc" "*__pycache__*"
-            echo "打包完成：SunPixel-python-web.zip"
+            echo "Packaged SunPixel-python-web.zip"
           else
-            echo "没有找到 python 或 web 目录，跳过打包"
+            echo "No python or web directories found"
           fi
           cd ..
-          
-          # 清理临时目录
           rm -rf package_temp
           
       - name: Create GitHub Release
@@ -550,47 +532,34 @@ jobs:
           set -e
           tag="commit-${GITHUB_SHA}"
           
-          # 获取更新日志（如果文件存在）
           cd current-repo
           update_log=""
           if [ -f "UpdateLog.log" ]; then
-            # 读取完整的更新日志文件
             update_log=$(cat UpdateLog.log)
-            # 转义特殊字符以便在 Markdown 中正确显示
             update_log=$(echo "$update_log" | sed 's/`/\\`/g' | sed 's/\[/\\[/g' | sed 's/\]/\\]/g')
-            echo "更新日志内容已读取"
+            echo "Update log loaded"
           else
-            echo "警告：UpdateLog.log 文件不存在"
-            update_log="暂无更新日志"
+            echo "Warning: UpdateLog.log not found"
+            update_log="No update log available"
           fi
           cd ..
           
-          # 创建格式化的 Release 说明
-          cat > release_notes.md << 'EOF'
-## 📦 发布内容
-
-### 二进制文件
-- **Linux AMD64** - `SunPixel-cli_linux_amd64`
-- **Linux ARM64** - `SunPixel-cli_linux_arm64`
-- **Android ARM64** - `SunPixel-cli_android_arm64`
-- **macOS AMD64** - `SunPixel-cli_darwin_amd64`
-- **macOS ARM64** - `SunPixel-cli_darwin_arm64`
-- **Windows AMD64** - `SunPixel-cli_windows_amd64.exe`
-- **Windows ARM64** - `SunPixel-cli_windows_arm64.exe`
-
-### 源代码包
-- **Python & Web** - `SunPixel-python-web.zip` (包含 Python 和 Web 源代码)
-
----
-
-## 📝 更新日志
-
-EOF
+          # 使用 printf 创建 release notes，避免 heredoc 语法问题
+          printf "## 📦 Release Contents\n\n" > release_notes.md
+          printf "### Binaries\n" >> release_notes.md
+          printf "- **Linux AMD64** - \`SunPixel-cli_linux_amd64\`\n" >> release_notes.md
+          printf "- **Linux ARM64** - \`SunPixel-cli_linux_arm64\`\n" >> release_notes.md
+          printf "- **Android ARM64** - \`SunPixel-cli_android_arm64\`\n" >> release_notes.md
+          printf "- **macOS AMD64** - \`SunPixel-cli_darwin_amd64\`\n" >> release_notes.md
+          printf "- **macOS ARM64** - \`SunPixel-cli_darwin_arm64\`\n" >> release_notes.md
+          printf "- **Windows AMD64** - \`SunPixel-cli_windows_amd64.exe\`\n" >> release_notes.md
+          printf "- **Windows ARM64** - \`SunPixel-cli_windows_arm64.exe\`\n\n" >> release_notes.md
+          printf "### Source Package\n" >> release_notes.md
+          printf "- **Python & Web** - \`SunPixel-python-web.zip\` (Python and Web source code)\n\n" >> release_notes.md
+          printf "---\n\n" >> release_notes.md
+          printf "## 📝 Update Log\n\n" >> release_notes.md
+          printf "%s\n" "$update_log" >> release_notes.md
           
-          # 将更新日志追加到文件
-          echo "$update_log" >> release_notes.md
-          
-          # 检查 Release 是否已存在
           if gh release view "$tag" --repo suibian-sun/SunPixel-Release >/dev/null 2>&1; then
             echo "Release $tag already exists, updating assets..."
           else
@@ -608,18 +577,16 @@ EOF
           set -e
           tag="commit-${GITHUB_SHA}"
           
-          # 检查是否有二进制文件需要上传
           if [ -d "binaries" ] && [ "$(ls -A binaries)" ]; then
-            # 上传所有二进制文件和 sha 文件
             for file in binaries/*; do
               if [ -f "$file" ]; then
                 echo "Uploading $file"
                 gh release upload "$tag" "$file" --repo suibian-sun/SunPixel-Release --clobber
               fi
             done
-            echo "所有文件上传成功"
+            echo "All files uploaded successfully"
           else
-            echo "没有找到要上传的文件"
+            echo "No files to upload"
           fi
 
   send-completion-notification:
@@ -649,14 +616,13 @@ EOF
           JOB_STATUS_WINDOWS_AMD64: ${{ needs.windows-amd64.result }}
           JOB_STATUS_WINDOWS_ARM64: ${{ needs.windows-arm64.result }}
         run: |
-          python3 << 'EOF'
+          python3 << 'PYTHON_EOF'
           import os
           import smtplib
           from email.mime.text import MIMEText
           from email.mime.multipart import MIMEMultipart
           from datetime import datetime
 
-          # 硬编码邮件配置
           MAIL_SERVER = 'smtp.163.com'
           MAIL_PORT = 465
           MAIL_USERNAME = 'ctigzs@163.com'
@@ -664,16 +630,14 @@ EOF
           MAIL_FROM_NAME = 'SunBot'
           MAIL_TO = '3214837362@qq.com'
 
-          # Workflow information
-          workflow = os.getenv('GITHUB_WORKFLOW', '未知')
-          repository = os.getenv('GITHUB_REPOSITORY', '未知')
-          sha = os.getenv('GITHUB_SHA', '未知')
-          ref = os.getenv('GITHUB_REF', '未知')
-          run_id = os.getenv('GITHUB_RUN_ID', '未知')
-          run_number = os.getenv('GITHUB_RUN_NUMBER', '未知')
-          event_name = os.getenv('GITHUB_EVENT_NAME', '未知')
+          workflow = os.getenv('GITHUB_WORKFLOW', 'Unknown')
+          repository = os.getenv('GITHUB_REPOSITORY', 'Unknown')
+          sha = os.getenv('GITHUB_SHA', 'Unknown')
+          ref = os.getenv('GITHUB_REF', 'Unknown')
+          run_id = os.getenv('GITHUB_RUN_ID', 'Unknown')
+          run_number = os.getenv('GITHUB_RUN_NUMBER', 'Unknown')
+          event_name = os.getenv('GITHUB_EVENT_NAME', 'Unknown')
 
-          # Job statuses
           jobs_cn = {
               'linux-amd64': os.getenv('JOB_STATUS_LINUX_AMD64', 'unknown'),
               'linux-arm64': os.getenv('JOB_STATUS_LINUX_ARM64', 'unknown'),
@@ -684,7 +648,6 @@ EOF
               'windows-arm64': os.getenv('JOB_STATUS_WINDOWS_ARM64', 'unknown'),
           }
 
-          # Job display names in Chinese
           job_display_names = {
               'linux-amd64': 'Linux AMD64',
               'linux-arm64': 'Linux ARM64',
@@ -695,35 +658,32 @@ EOF
               'windows-arm64': 'Windows ARM64',
           }
 
-          # Determine overall status
           has_failure = any(status == 'failure' for status in jobs_cn.values())
           has_skipped = any(status == 'skipped' for status in jobs_cn.values())
           
           if has_failure:
-              overall_status = '失败'
+              overall_status = 'Failed'
               status_color = '#f44336'
               status_icon = '❌'
-              status_message = '构建过程中出现错误'
+              status_message = 'Build completed with errors'
           elif has_skipped:
-              overall_status = '部分跳过'
+              overall_status = 'Partial'
               status_color = '#FF9800'
               status_icon = '⚠️'
-              status_message = '部分构建任务被跳过'
+              status_message = 'Some build tasks were skipped'
           else:
-              overall_status = '成功'
+              overall_status = 'Success'
               status_color = '#4CAF50'
               status_icon = '✅'
-              status_message = '所有平台二进制文件已成功构建'
+              status_message = 'All platforms built successfully'
 
-          # Create email content in Chinese
-          subject = f"[{overall_status}] SunPixel CI/CD - 运行 #{run_number}"
+          subject = f"[{overall_status}] SunPixel CI/CD - Run #{run_number}"
           
-          # Status display in Chinese
           status_display_map = {
-              'success': '成功',
-              'failure': '失败',
-              'skipped': '跳过',
-              'unknown': '未知'
+              'success': 'Success',
+              'failure': 'Failed',
+              'skipped': 'Skipped',
+              'unknown': 'Unknown'
           }
           
           html_content = f"""
@@ -731,10 +691,9 @@ EOF
           <head>
               <meta charset="UTF-8">
               <style>
-                  body {{ font-family: "Microsoft YaHei", Arial, sans-serif; line-height: 1.6; color: #333; }}
+                  body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
                   .container {{ max-width: 650px; margin: 0 auto; padding: 20px; }}
-                  .header {{ background-color: {status_color};
-                             color: white; padding: 15px; border-radius: 5px; text-align: center; }}
+                  .header {{ background-color: {status_color}; color: white; padding: 15px; border-radius: 5px; text-align: center; }}
                   .content {{ background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin-top: 20px; }}
                   .section {{ margin-bottom: 20px; }}
                   .section h3 {{ color: #666; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
@@ -744,7 +703,6 @@ EOF
                   .status-success {{ color: #4CAF50; font-weight: bold; }}
                   .status-failure {{ color: #f44336; font-weight: bold; }}
                   .status-skipped {{ color: #9E9E9E; }}
-                  .status-unknown {{ color: #FF9800; }}
                   .footer {{ margin-top: 20px; padding: 10px; text-align: center; color: #999; font-size: 12px; }}
               </style>
           </head>
@@ -755,64 +713,55 @@ EOF
                   </div>
                   <div class="content">
                       <div class="section">
-                          <h3>📋 工作流信息</h3>
-                           <table>
-                               <tr><th>工作流名称</th><td>{workflow}</td></tr>
-                               <tr><th>仓库</th><td>{repository}</td></tr>
-                               <tr><th>运行编号</th><td>#{run_number}</td></tr>
-                               <tr><th>运行 ID</th><td>{run_id}</td></tr>
-                               <tr><th>触发事件</th><td>{event_name}</td></tr>
-                               <tr><th>分支/引用</th><td>{ref}</td></tr>
-                               <tr><th>提交 SHA</th><td><code>{sha[:7]}</code></td></tr>
-                               <tr><th>完成时间</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
-                           </table>
+                          <h3>Workflow Information</h3>
+                          <table>
+                              <tr><th>Workflow</th><td>{workflow}</td></tr>
+                              <tr><th>Repository</th><td>{repository}</td></tr>
+                              <tr><th>Run Number</th><td>#{run_number}</td></tr>
+                              <tr><th>Run ID</th><td>{run_id}</td></tr>
+                              <tr><th>Event</th><td>{event_name}</td></tr>
+                              <tr><th>Ref</th><td>{ref}</td></tr>
+                              <tr><th>Commit SHA</th><td><code>{sha[:7]}</code></td></tr>
+                              <tr><th>Completed</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
+                          </table>
                       </div>
                       <div class="section">
-                          <h3>📦 任务状态</h3>
-                           <table>
-                               <tr><th>任务</th><th>状态</th></tr>
+                          <h3>Job Status</h3>
+                          <table>
+                              <tr><th>Job</th><th>Status</th></tr>
           """
-
           for job_name, status in jobs_cn.items():
               display_name = job_display_names.get(job_name, job_name)
               status_class = f'status-{status}' if status in ['success', 'failure', 'skipped'] else 'status-unknown'
               status_text = status_display_map.get(status, status)
               html_content += f'<tr><td>{display_name}</td><td class="{status_class}">{status_text}</td></tr>\n'
-
           html_content += f"""
-                           </table>
+                          </table>
                       </div>
                       <div class="section">
-                          <h3>🔗 相关链接</h3>
-                          <p>
-                              <a href="https://github.com/{repository}/actions/runs/{run_id}">查看工作流运行详情</a>
-                          </p>
+                          <h3>Links</h3>
+                          <p><a href="https://github.com/{repository}/actions/runs/{run_id}">View workflow run details</a></p>
                       </div>
                   </div>
                   <div class="footer">
-                      <p>此邮件由 {MAIL_FROM_NAME} 自动发送</p>
+                      <p>This email was sent automatically by {MAIL_FROM_NAME}</p>
                   </div>
               </div>
           </body>
           </html>
           """
-
-          # Create email message
           msg = MIMEMultipart('alternative')
           msg['Subject'] = subject
           msg['From'] = f"{MAIL_FROM_NAME} <{MAIL_USERNAME}>"
           msg['To'] = MAIL_TO
-
-          # Attach HTML content
           html_part = MIMEText(html_content, 'html', 'utf-8')
           msg.attach(html_part)
-
-          # Send email
           try:
               with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
                   server.login(MAIL_USERNAME, MAIL_AUTHORIZATION_CODE)
                   server.send_message(msg)
-              print(f"完成通知邮件已成功发送至 {MAIL_TO}")
+              print(f"Completion email sent to {MAIL_TO}")
           except Exception as e:
-              print(f"发送完成通知邮件失败: {str(e)}")
-          EOF
+              print(f"Failed to send completion email: {str(e)}")
+          PYTHON_EOFtr(e)}")
+          PYTHON_EOF
