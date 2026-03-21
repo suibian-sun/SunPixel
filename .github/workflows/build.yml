@@ -532,7 +532,7 @@ jobs:
           cd ..
           rm -rf package_temp
           
-      - name: Create GitHub Release with Card Style
+      - name: Create GitHub Release
         env:
           GH_TOKEN: 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
         run: |
@@ -543,12 +543,10 @@ jobs:
           update_log=""
           if [ -f "UpdateLog.log" ]; then
             update_log=$(cat UpdateLog.log)
-            # 转义 HTML 特殊字符
-            update_log=$(echo "$update_log" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
             echo "Update log loaded"
           else
             echo "Warning: UpdateLog.log not found"
-            update_log="No update log available for this build"
+            update_log="暂无更新日志"
           fi
           cd ..
           
@@ -556,74 +554,55 @@ jobs:
           branch_name="${GITHUB_REF#refs/heads/}"
           build_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           commit_sha="${GITHUB_SHA}"
+          commit_short="${commit_sha:0:7}"
           
-          # 使用 printf 创建 release notes，避免 heredoc 问题
-          printf '%s\n' '<div style="font-family: -apple-system, BlinkMacSystemFont, '\''Segoe UI'\'', Helvetica, Arial, sans-serif; max-width: 900px; margin: 0 auto;">' > release_notes.md
-          printf '%s\n' '' >> release_notes.md
-          printf '%s\n' '  <!-- 发行内容卡片 -->' >> release_notes.md
-          printf '%s\n' '  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 2px; margin-bottom: 24px;">' >> release_notes.md
-          printf '%s\n' '    <div style="background: white; border-radius: 14px; padding: 24px;">' >> release_notes.md
-          printf '%s\n' '      <h2 style="margin: 0 0 16px 0; color: #333; display: flex; align-items: center; gap: 8px;">' >> release_notes.md
-          printf '%s\n' '        <span style="font-size: 28px;">📦</span>' >> release_notes.md
-          printf '%s\n' '        <span>发布内容</span>' >> release_notes.md
-          printf '%s\n' '      </h2>' >> release_notes.md
-          printf '%s\n' '' >> release_notes.md
-          printf '%s\n' '      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px;">' >> release_notes.md
-          printf '%s\n' '        <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #667eea;">' >> release_notes.md
-          printf '%s\n' '          <h3 style="margin: 0 0 12px 0; color: #667eea; font-size: 18px;">🎯 二进制文件</h3>' >> release_notes.md
-          printf '%s\n' '          <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">' >> release_notes.md
-          printf '%s\n' '            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_linux_amd64</code> - Linux AMD64</li>' >> release_notes.md
-          printf '%s\n' '            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_linux_arm64</code> - Linux ARM64</li>' >> release_notes.md
-          printf '%s\n' '            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_android_arm64</code> - Android ARM64</li>' >> release_notes.md
-          printf '%s\n' '            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_darwin_amd64</code> - macOS AMD64</li>' >> release_notes.md
-          printf '%s\n' '            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_darwin_arm64</code> - macOS ARM64</li>' >> release_notes.md
-          printf '%s\n' '            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_windows_amd64.exe</code> - Windows AMD64</li>' >> release_notes.md
-          printf '%s\n' '            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-cli_windows_arm64.exe</code> - Windows ARM64</li>' >> release_notes.md
-          printf '%s\n' '          </ul>' >> release_notes.md
-          printf '%s\n' '        </div>' >> release_notes.md
-          printf '%s\n' '' >> release_notes.md
-          printf '%s\n' '        <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #48bb78;">' >> release_notes.md
-          printf '%s\n' '          <h3 style="margin: 0 0 12px 0; color: #48bb78; font-size: 18px;">📚 源代码包</h3>' >> release_notes.md
-          printf '%s\n' '          <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">' >> release_notes.md
-          printf '%s\n' '            <li><code style="background: #e9ecef; padding: 2px 6px; border-radius: 4px;">SunPixel-python-web.zip</code> - Python & Web 源代码</li>' >> release_notes.md
-          printf '%s\n' '          </ul>' >> release_notes.md
-          printf '%s\n' '        </div>' >> release_notes.md
-          printf '%s\n' '      </div>' >> release_notes.md
-          printf '%s\n' '' >> release_notes.md
-          printf '%s\n' '      <div style="background: #fef5e7; border-radius: 12px; padding: 16px; border-left: 4px solid #f59e0b;">' >> release_notes.md
-          printf '%s\n' '        <h3 style="margin: 0 0 8px 0; color: #f59e0b; font-size: 18px;">ℹ️ 构建信息</h3>' >> release_notes.md
-          printf '%s\n' '        <p style="margin: 0; color: #666; line-height: 1.6;">' >> release_notes.md
-          printf '%s\n' '          <strong>提交 SHA:</strong> <code>%s</code><br>' "$commit_sha" >> release_notes.md
-          printf '%s\n' '          <strong>分支:</strong> %s<br>' "$branch_name" >> release_notes.md
-          printf '%s\n' '          <strong>构建时间:</strong> %s' "$build_time" >> release_notes.md
-          printf '%s\n' '        </p>' >> release_notes.md
-          printf '%s\n' '      </div>' >> release_notes.md
-          printf '%s\n' '    </div>' >> release_notes.md
-          printf '%s\n' '  </div>' >> release_notes.md
-          printf '%s\n' '' >> release_notes.md
-          printf '%s\n' '  <!-- 更新日志卡片 -->' >> release_notes.md
-          printf '%s\n' '  <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 16px; padding: 2px;">' >> release_notes.md
-          printf '%s\n' '    <div style="background: white; border-radius: 14px; padding: 24px;">' >> release_notes.md
-          printf '%s\n' '      <h2 style="margin: 0 0 16px 0; color: #333; display: flex; align-items: center; gap: 8px;">' >> release_notes.md
-          printf '%s\n' '        <span style="font-size: 28px;">📝</span>' >> release_notes.md
-          printf '%s\n' '        <span>更新日志</span>' >> release_notes.md
-          printf '%s\n' '      </h2>' >> release_notes.md
-          printf '%s\n' '      <div style="background: #fafafa; border-radius: 12px; padding: 20px; font-family: '\''SF Mono'\'', Monaco, '\''Cascadia Code'\'', monospace; font-size: 14px; line-height: 1.6; color: #2c3e50; overflow-x: auto; white-space: pre-wrap;">' >> release_notes.md
-          printf '%s\n' "%s" "$update_log" >> release_notes.md
-          printf '%s\n' '      </div>' >> release_notes.md
-          printf '%s\n' '      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e9ecef; text-align: right;">' >> release_notes.md
-          printf '%s\n' '        <span style="color: #999; font-size: 12px;">📅 自动生成于 %s</span>' "$build_time" >> release_notes.md
-          printf '%s\n' '      </div>' >> release_notes.md
-          printf '%s\n' '    </div>' >> release_notes.md
-          printf '%s\n' '  </div>' >> release_notes.md
-          printf '%s\n' '</div>' >> release_notes.md
+          # 使用 Markdown 格式创建 release notes
+          cat > release_notes.md << EOF
+## 📦 发布内容
+
+### 🎯 二进制文件
+
+| 平台 | 文件 |
+|------|------|
+| Linux AMD64 | \`SunPixel-cli_linux_amd64\` |
+| Linux ARM64 | \`SunPixel-cli_linux_arm64\` |
+| Android ARM64 | \`SunPixel-cli_android_arm64\` |
+| macOS AMD64 | \`SunPixel-cli_darwin_amd64\` |
+| macOS ARM64 | \`SunPixel-cli_darwin_arm64\` |
+| Windows AMD64 | \`SunPixel-cli_windows_amd64.exe\` |
+| Windows ARM64 | \`SunPixel-cli_windows_arm64.exe\` |
+
+### 📚 源代码包
+
+- **Python & Web** - \`SunPixel-python-web.zip\` (包含 Python 和 Web 源代码)
+
+### ℹ️ 构建信息
+
+| 项目 | 信息 |
+|------|------|
+| 提交 SHA | \`${commit_sha}\` |
+| 分支 | \`${branch_name}\` |
+| 构建时间 | ${build_time} |
+
+---
+
+## 📝 更新日志
+
+\`\`\`
+${update_log}
+\`\`\`
+
+---
+
+*📅 此 Release 由 GitHub Actions 自动生成于 ${build_time}*
+EOF
           
           if gh release view "$tag" --repo suibian-sun/SunPixel-Release >/dev/null 2>&1; then
             echo "Release $tag already exists, updating assets..."
           else
             gh release create "$tag" \
               --repo suibian-sun/SunPixel-Release \
-              --title "SunPixel GO CLI WEB commit-${GITHUB_SHA}" \
+              --title "SunPixel GO CLI WEB commit-${commit_short}" \
               --notes-file release_notes.md
             echo "Release created: $tag"
           fi
@@ -773,20 +752,20 @@ jobs:
                       <div class="section">
                           <h3>Workflow Information</h3>
                           <table>
-                              <tr><th>Workflow</th><td>{workflow}</td></tr>
-                              <tr><th>Repository</th><td>{repository}</td></tr>
-                              <tr><th>Run Number</th><td>#{run_number}</td></tr>
-                              <tr><th>Run ID</th><td>{run_id}</td></tr>
-                              <tr><th>Event</th><td>{event_name}</td></tr>
-                              <tr><th>Ref</th><td>{ref}</td></tr>
-                              <tr><th>Commit SHA</th><td><code>{sha[:7]}</code></td></tr>
-                              <tr><th>Completed</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
+                              <tr><th>Workflow</th><td>{workflow}</td>
+                              <tr><th>Repository</th><td>{repository}</td>
+                              <tr><th>Run Number</th><td>#{run_number}</td>
+                              <tr><th>Run ID</th><td>{run_id}</td>
+                              <tr><th>Event</th><td>{event_name}</td>
+                              <tr><th>Ref</th><td>{ref}</td>
+                              <tr><th>Commit SHA</th><td><code>{sha[:7]}</code></td>
+                              <tr><th>Completed</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td>
                           </table>
                       </div>
                       <div class="section">
                           <h3>Job Status</h3>
                           <table>
-                              <tr><th>Job</th><th>Status</th></tr>
+                              <tr><th>Job</th><th>Status</th>
           """
           for job_name, status in jobs_cn.items():
               display_name = job_display_names.get(job_name, job_name)
@@ -794,7 +773,7 @@ jobs:
               status_text = status_display_map.get(status, status)
               html_content += f'<tr><td>{display_name}</td><td class="{status_class}">{status_text}</td></tr>\n'
           html_content += f"""
-                          </table>
+                           </table>
                       </div>
                       <div class="section">
                           <h3>Links</h3>
@@ -821,4 +800,5 @@ jobs:
               print(f"Completion email sent to {MAIL_TO}")
           except Exception as e:
               print(f"Failed to send completion email: {str(e)}")
+          PYTHON_EOFr�(e)}")
           PYTHON_EOF
