@@ -756,21 +756,21 @@ EOF
                   <div class="content">
                       <div class="section">
                           <h3>📋 工作流信息</h3>
-                          <table>
-                              <tr><th>工作流名称</th><td>{workflow}</td>
-                              <tr><th>仓库</th><td>{repository}</td>
-                              <tr><th>运行编号</th><td>#{run_number}</td>
-                              <tr><th>运行 ID</th><td>{run_id}</td>
-                              <tr><th>触发事件</th><td>{event_name}</td>
-                              <tr><th>分支/引用</th><td>{ref}</td>
-                              <tr><th>提交 SHA</th><td><code>{sha[:7]}</code></td>
-                              <tr><th>完成时间</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td>
-                          </table>
+                           <table>
+                               <tr><th>工作流名称</th><td>{workflow}</td></tr>
+                               <tr><th>仓库</th><td>{repository}</td></tr>
+                               <tr><th>运行编号</th><td>#{run_number}</td></tr>
+                               <tr><th>运行 ID</th><td>{run_id}</td></tr>
+                               <tr><th>触发事件</th><td>{event_name}</td></tr>
+                               <tr><th>分支/引用</th><td>{ref}</td></tr>
+                               <tr><th>提交 SHA</th><td><code>{sha[:7]}</code></td></tr>
+                               <tr><th>完成时间</th><td>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
+                           </table>
                       </div>
                       <div class="section">
                           <h3>📦 任务状态</h3>
-                          <table>
-                              <tr><th>任务</th><th>状态</th>
+                           <table>
+                               <tr><th>任务</th><th>状态</th></tr>
           """
 
           for job_name, status in jobs_cn.items():
