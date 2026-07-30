@@ -11,9 +11,7 @@ pages_build_output_dir = "./"
 [[rules]]
 type = "Static"
 glob = "**/*.{html,css,js,json,png,jpg,gif,svg,ico,woff,woff2,ttf,eot}"
-headers = {
-  "Cache-Control": "public, max-age=86400"
-}
+headers = { "Cache-Control" = "public, max-age=86400" }
 
 # Functions 路由
 [[redirects]]

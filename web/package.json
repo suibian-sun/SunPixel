@@ -4,13 +4,8 @@
   "description": "SunPixel - 像素画转Minecraft结构 (Cloudflare Pages)",
   "main": "index.html",
   "scripts": {
-    "dev": "wrangler pages dev ./",
-    "build": "echo 'Static site - no build required'",
-    "deploy": "wrangler pages deploy ./"
+    "build": "echo 'Static site - no build required'"
   },
   "dependencies": {
-  },
-  "devDependencies": {
-    "wrangler": "^3.0.0"
   }
 }
