@@ -283,7 +283,7 @@ go build -o sunpixel ./cmd/main
 
 - **主仓库**：https://github.com/suibian-sun/SunPixel
 - **Release 仓库**：https://github.com/suibian-sun/SunPixel-Release（已删库）
-- **在线服务**：https://SunPixel.520cti.shop（开放中2026.07.30）
+- **在线服务**：https://SunPixel.suibian114.top & https://sunpixel.pages.dev（开放中2026.07.30）
 
 ## 注意事项
 
