@@ -6,15 +6,3 @@ pages_build_output_dir = "./"
 
 [env.production]
 pages_build_output_dir = "./"
-
-# 路由规则：所有静态文件直接服务，API 由 Functions 处理
-[[rules]]
-type = "Static"
-glob = "**/*.{html,css,js,json,png,jpg,gif,svg,ico,woff,woff2,ttf,eot}"
-headers = { "Cache-Control" = "public, max-age=86400" }
-
-# Functions 路由
-[[redirects]]
-from = "/api/*"
-to = "/api/*"
-status = 200
