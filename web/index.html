@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SunPixel - 像素画转Minecraft结构</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+        :root {
+            --primary-color: #8e44ad;
+            --primary-dark: #7d3c98;
+            --secondary-color: #2ecc71;
+            --dark-bg: #1a1a1a;
+            --light-bg: #f8f9fa;
+            --text-color: #333;
+            --text-light: #666;
+            --border-color: #ddd;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --gradient-start: #8e44ad;
+            --gradient-mid: #3498db;
+            --gradient-end: #2ecc71;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--light-bg);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+        
+        .navbar {
+            background: white;
+            box-shadow: var(--shadow);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+        }
+        
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo i { font-size: 24px; color: var(--primary-color); }
+        .logo h1 { font-size: 24px; color: var(--primary-color); }
+        
+        .nav-links { display: flex; gap: 30px; list-style: none; }
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 500;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .nav-links a:hover, .nav-links a.active { background: var(--primary-color); color: white; }
+        
+        .main-content { max-width: 1200px; margin: 80px auto 20px; padding: 0 20px; }
+        .page-header { margin-bottom: 30px; }
+        .page-header h2 { font-size: 28px; color: var(--primary-color); display: flex; align-items: center; gap: 10px; }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .card-header {
+            font-size: 22px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+        .card-header i { margin-right: 10px; }
+        
+        .config-panel { background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 30px; }
+        .config-section { margin-bottom: 25px; }
+        .config-section h4 { color: var(--primary-color); margin-bottom: 15px; padding-bottom: 8px; border-bottom: 1px dashed var(--border-color); }
+        .form-group { margin-bottom: 15px; }
+        .form-label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-color); }
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        .form-control:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2); }
+        
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 30px;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .upload-section:hover { border-color: var(--primary-color); background: rgba(52, 152, 219, 0.03); }
+        .upload-icon { font-size: 48px; color: var(--primary-color); margin-bottom: 15px; }
+        .upload-text { font-size: 16px; color: var(--text-light); margin-bottom: 15px; }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            text-decoration: none;
+            text-align: center;
+            min-width: 120px;
+            margin: 5px;
+        }
+        .btn:hover { background: var(--primary-dark); }
+        .btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+        .btn-outline { background: transparent; border: 1px solid var(--primary-color); color: var(--primary-color); }
+        .btn-outline:hover { background: var(--primary-color); color: white; }
+        
+        .btn-group { display: flex; gap: 15px; flex-wrap: wrap; margin: 20px 0; justify-content: center; }
+        
+        .preview-section { margin-top: 30px; }
+        .preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+        .preview-item { text-align: center; padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background: white; }
+        .preview-image { max-width: 100%; max-height: 250px; margin-bottom: 10px; border-radius: 4px; object-fit: contain; }
+        
+        .progress-section { background: white; border-radius: 8px; padding: 20px; margin-top: 20px; border: 1px solid var(--border-color); }
+        .progress { height: 25px; background: #e9ecef; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
+        .progress-bar {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 500;
+            transition: width 0.3s;
+        }
+        .progress-info { margin-top: 10px; }
+        
+        .logs {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .log-entry { margin-bottom: 5px; line-height: 1.4; }
+        .log-success { color: #28a745; }
+        .log-error { color: #dc3545; }
+        .log-warning { color: #ffc107; }
+        .log-info { color: #17a2b8; }
+        
+        .block-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .block-item {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .block-item:hover { border-color: var(--primary-color); background: rgba(52, 152, 219, 0.1); }
+        .block-item.selected { border-color: var(--primary-color); background: rgba(52, 152, 219, 0.2); }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
+        .stat-card { background: linear-gradient(135deg, #f8f9ff, #f0f0ff); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; text-align: center; }
+        .stat-card .stat-value { font-size: 24px; font-weight: 700; color: var(--primary-color); }
+        .stat-card .stat-label { font-size: 13px; color: var(--text-light); margin-top: 5px; }
+        .counter-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); }
+        .counter-item:last-child { border-bottom: none; }
+        
+        .modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+        .modal.active { opacity: 1; visibility: visible; }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            transform: translateY(-20px);
+            transition: transform 0.3s;
+        }
+        .modal.active .modal-content { transform: translateY(0); }
+        .modal-close { position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: var(--text-light); }
+        .modal-title { font-size: 20px; margin-bottom: 20px; color: var(--primary-color); }
+        
+        .changelog-item { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+        .changelog-item:last-child { border-bottom: none; }
+        .changelog-date { font-size: 18px; font-weight: 600; color: var(--primary-color); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--primary-color); }
+        .changelog-content { line-height: 1.8; color: var(--text-color); font-size: 15px; }
+        .changelog-content h3 { color: var(--primary-color); margin: 20px 0 12px; font-size: 17px; }
+        .changelog-content h4 { color: var(--text-color); margin: 15px 0 8px; font-size: 15px; }
+        .changelog-content ul { margin-left: 20px; margin-bottom: 12px; }
+        .changelog-content li { margin-bottom: 6px; }
+        .changelog-content p { margin-bottom: 12px; }
+        .changelog-content blockquote { border-left: 3px solid var(--primary-color); padding-left: 15px; margin: 10px 0; color: #666; }
+        
+        .final-banner {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
+            color: white;
+            text-align: center;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3);
+        }
+        .final-banner h3 { font-size: 20px; margin-bottom: 8px; }
+        .final-banner p { font-size: 14px; opacity: 0.9; line-height: 1.6; }
+        .final-banner .signature { margin-top: 8px; font-style: italic; opacity: 0.8; }
+        
+        .notification {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 6px;
+            color: white;
+            z-index: 3000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-weight: 500;
+            min-width: 250px;
+            max-width: 400px;
+            animation: slideInRight 0.3s ease;
+        }
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        
+        .row { display: flex; flex-wrap: wrap; gap: 15px; }
+        .row .form-group { flex: 1; min-width: 200px; }
+        
+        .badge { background: var(--primary-color); color: white; padding: 5px 12px; border-radius: 12px; font-size: 14px; }
+        
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .preview-grid { grid-template-columns: 1fr; }
+            .config-panel { padding: 15px; }
+            .btn-group { flex-direction: column; }
+            .btn { width: 100%; }
+            .block-selection { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="logo">
+                    <i class="fas fa-sun"></i>
+                    <h1>SunPixel</h1>
+                </div>
+                <ul class="nav-links">
+                    <li><a class="active"><i class="fas fa-home"></i> 控制台</a></li>
+                    <li><a @click="showChangelog = true"><i class="fas fa-clipboard-list"></i> 更新记录</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <div class="main-content" v-if="!showChangelog">
+            <div class="final-banner">
+                <h3><i class="fas fa-star"></i> SunPixel 最终版本</h3>
+                <p>自2026年7月30日起，本项目将仅进行Bug修复，不再新增功能内容。<br>感谢大家一路以来的陪伴与支持。山高路远，我们有缘再会。</p>
+                <div class="signature">—— SunEcology · 2026年7月30日</div>
+            </div>
+            
+            <div class="page-header">
+                <h2><i class="fas fa-palette"></i> 2D像素画转换</h2>
+            </div>
+            
+            <div class="config-panel">
+                <div class="config-section">
+                    <h4><i class="fas fa-cog"></i> 输出格式</h4>
+                    <div class="form-group">
+                        <label class="form-label">选择输出格式</label>
+                        <select v-model="format" class="form-control">
+                            <option value="schem">.schem (标准结构文件)</option>
+                            <option value="json">.json (RunAway格式)</option>
+                            <option value="litematic">.litematic (Litematica格式)</option>
+                            <option value="bdx">.bdx (BDX格式)</option>
+                            <option value="mcfunction">.mcfunction (命令方块函数)</option>
+                            <option value="mcstructure">.mcstructure (结构文件)</option>
+                            <option value="mcworld">.mcworld (世界文件)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <h4><i class="fas fa-cube"></i> 方块选择</h4>
+                    <div class="form-group">
+                        <label class="form-label">选择方块类型</label>
+                        <div class="block-selection">
+                            <div v-for="block in allBlocks" :key="block"
+                                 :class="['block-item', { selected: selectedBlocks.includes(block) }]"
+                                 @click="toggleBlock(block)">
+                                <div>{{ getBlockDisplayName(block) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <h4><i class="fas fa-ruler"></i> 尺寸设置</h4>
+                    <div class="row">
+                        <div class="form-group">
+                            <label class="form-label">长度</label>
+                            <input type="number" v-model.number="width" class="form-control" min="1" max="512">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">宽度</label>
+                            <input type="number" v-model.number="height" class="form-control" min="1" max="512">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="upload-section" @click="triggerFileInput" @dragover.prevent @drop.prevent="handleDrop">
+                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                <div class="upload-text">点击选择或拖拽图片到此区域</div>
+                <div>支持 PNG 和 JPG 格式</div>
+                <input type="file" ref="fileInput" accept="image/*" class="form-control"
+                       style="margin-top: 15px; max-width: 300px; display: inline-block;"
+                       @change="handleFileUpload">
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn" :disabled="isConverting || !uploadedImage" @click="startConversion">
+                    <i class="fas fa-cogs"></i> 开始转换
+                </button>
+                <button class="btn" :disabled="!downloadBlob" @click="downloadFile">
+                    <i class="fas fa-download"></i> 下载
+                </button>
+            </div>
+            
+            <div v-if="showPreview" class="preview-section">
+                <div class="card-header"><i class="fas fa-eye"></i> 预览</div>
+                <div class="preview-grid">
+                    <div class="preview-item">
+                        <h6>原图</h6>
+                        <img :src="originalPreview" class="preview-image" alt="原图预览">
+                    </div>
+                    <div class="preview-item">
+                        <h6>效果图</h6>
+                        <img :src="resultPreview" class="preview-image" alt="效果图预览">
+                    </div>
+                </div>
+            </div>
+            
+            <div v-if="showProgress" class="progress-section">
+                <div class="card-header"><i class="fas fa-sync-alt"></i> 转换进度</div>
+                <div class="progress">
+                    <div :class="['progress-bar', progressBarClass]" :style="{ width: progress + '%' }">
+                        {{ progress }}%
+                    </div>
+                </div>
+                <div class="progress-info"><p>{{ progressMessage }}</p></div>
+                <div class="logs">
+                    <div v-for="(log, idx) in logs" :key="idx" :class="logClass(log)">{{ log }}</div>
+                </div>
+            </div>
+            
+            <div v-if="showCounter" class="card">
+                <div class="card-header"><i class="fas fa-chart-bar"></i> 转换统计</div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">{{ stats.width }} × {{ stats.height }}</div>
+                        <div class="stat-label">结构尺寸 (方块)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">{{ stats.totalBlocks }}</div>
+                        <div class="stat-label">总方块数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">{{ stats.blockTypes }}</div>
+                        <div class="stat-label">方块类型数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">{{ stats.elapsed }}s</div>
+                        <div class="stat-label">转换耗时</div>
+                    </div>
+                </div>
+                <div v-if="Object.keys(blockCounts).length > 0" style="margin-top: 15px;">
+                    <h5 style="color: var(--text-light); margin-bottom: 10px;">方块使用详情</h5>
+                    <div v-for="(count, block) in blockCounts" :key="block" class="counter-item">
+                        <span>{{ block }}</span>
+                        <span class="badge">{{ count }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div :class="['modal', { active: showChangelog }]" @click.self="showChangelog = false">
+            <div class="modal-content">
+                <span class="modal-close" @click="showChangelog = false">&times;</span>
+                <div class="modal-title">更新记录</div>
+                <div v-if="changelogs.length === 0" class="changelog-loading" style="text-align:center;padding:40px;color:#666;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:32px;color:var(--primary-color);"></i>
+                    <p>加载更新记录中...</p>
+                </div>
+                <div v-else>
+                    <div v-for="log in changelogs" :key="log.date" class="changelog-item">
+                        <div class="changelog-date">{{ log.date }}</div>
+                        <div class="changelog-content" v-html="formatChangelog(log.content)"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { processPixels, getImagePixels, generatePreview } from './js/converter.js';
+        import { generateOutput } from './js/formatter.js';
+
+        const { createApp, ref, reactive, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const format = ref('schem');
+                const width = ref(128);
+                const height = ref(128);
+                const selectedBlocks = ref([]);
+                const allBlocks = ref([]);
+                const uploadedImage = ref(null);
+                const originalPreview = ref('');
+                const resultPreview = ref('');
+                const showPreview = ref(false);
+                const showProgress = ref(false);
+                const showCounter = ref(false);
+                const showChangelog = ref(false);
+                const progress = ref(0);
+                const progressMessage = ref('准备开始转换...');
+                const logs = ref([]);
+                const isConverting = ref(false);
+                const downloadBlob = ref(null);
+                const downloadFilename = ref('');
+                const blockCounts = ref({});
+                const changelogs = ref([]);
+                const fileInput = ref(null);
+                const stats = ref({ width: 0, height: 0, totalBlocks: 0, blockTypes: 0, elapsed: 0 });
+                let imageElement = null;
+
+                const progressBarClass = computed(() => {
+                    const p = progress.value;
+                    if (p < 30) return 'progress-bar bg-info';
+                    if (p < 70) return 'progress-bar bg-primary';
+                    return 'progress-bar bg-success';
+                });
+
+                function triggerFileInput() { fileInput.value?.click(); }
+
+                function handleDrop(e) {
+                    const file = e.dataTransfer.files[0];
+                    if (file) processFile(file);
+                }
+
+                function handleFileUpload(e) {
+                    const file = e.target.files[0];
+                    if (file) processFile(file);
+                }
+
+                function processFile(file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            imageElement = img;
+                            uploadedImage.value = file;
+                            originalPreview.value = event.target.result;
+                            showPreview.value = true;
+                            showMessage('图片上传成功', '已成功加载图片', 'success');
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+
+                function getBlockDisplayName(blockType) {
+                    const names = {
+                        'wool': '羊毛', 'concrete': '混凝土', 'glass': '玻璃',
+                        'stone': '石头', 'wood': '木材', 'ore': '矿石',
+                        'natural': '自然', 'plants': '植物', 'terracotta': '陶瓦',
+                        'glazed_terracotta': '带釉陶瓦', 'concrete_powder': '混凝土粉末',
+                        'carpet': '地毯', 'shulker_box': '潜影盒', 'bed': '床', 'banner': '旗帜'
+                    };
+                    return names[blockType] || blockType;
+                }
+
+                function toggleBlock(block) {
+                    const idx = selectedBlocks.value.indexOf(block);
+                    if (idx >= 0) selectedBlocks.value.splice(idx, 1);
+                    else selectedBlocks.value.push(block);
+                }
+
+                async function loadAvailableBlocks() {
+                    try {
+                        const resp = await fetch('/api/blocks');
+                        const blocks = await resp.json();
+                        allBlocks.value = blocks.map(b => b.id);
+                        if (blocks.length >= 2) {
+                            selectedBlocks.value = [blocks[0].id, blocks[1].id];
+                        } else if (blocks.length > 0) {
+                            selectedBlocks.value = [blocks[0].id];
+                        }
+                    } catch (e) {
+                        console.error('加载方块类型失败:', e);
+                        allBlocks.value = ['wool', 'concrete'];
+                        selectedBlocks.value = ['wool', 'concrete'];
+                    }
+                }
+
+                async function loadChangelog() {
+                    try {
+                        const resp = await fetch('/api/changelog');
+                        changelogs.value = await resp.json();
+                    } catch (e) {
+                        console.error('加载更新记录失败:', e);
+                    }
+                }
+
+                function formatChangelog(content) {
+                    let html = content
+                        .replace(/^### (.*$)/gm, '<h4>$1</h4>')
+                        .replace(/^## (.*$)/gm, '<h3>$1</h3>')
+                        .replace(/^# (.*$)/gm, '<h3>$1</h3>')
+                        .replace(/^\> (.*$)/gm, '<blockquote>$1</blockquote>')
+                        .replace(/\*\*(.*)\*\*/gm, '<strong>$1</strong>')
+                        .replace(/\*(.*)\*/gm, '<em>$1</em>')
+                        .replace(/\n\n/gm, '<br><br>')
+                        .replace(/\n/gm, '<br>');
+                    html = html.replace(/^- (.*$)/gm, '<li>$1</li>');
+                    if (html.includes('<li>')) {
+                        html = html.replace(/(<li>.*?)(?=<\/ul>|<h\d>|<div|$)/gs, function(match) {
+                            if (match.includes('<li>')) return '<ul>' + match + '</ul>';
+                            return match;
+                        });
+                    }
+                    return html;
+                }
+
+                async function startConversion() {
+                    if (!imageElement) {
+                        showMessage('错误', '请先上传图片', 'error');
+                        return;
+                    }
+                    if (selectedBlocks.value.length === 0) {
+                        showMessage('错误', '请至少选择一个方块类型', 'error');
+                        return;
+                    }
+
+                    isConverting.value = true;
+                    showProgress.value = true;
+                    showCounter.value = false;
+                    logs.value = [];
+                    progress.value = 0;
+                    progressMessage.value = '开始转换...';
+                    downloadBlob.value = null;
+                    downloadFilename.value = '';
+
+                    const startTime = Date.now();
+
+                    try {
+                        // 阶段1: 读取像素
+                        await sleep(100);
+                        progress.value = 10;
+                        progressMessage.value = '正在读取像素数据...';
+                        logs.value.push('🔄 读取像素数据...');
+                        
+                        const pixels = getImagePixels(imageElement, width.value, height.value);
+                        logs.value.push(`✅ 像素数据读取完成: ${width.value} × ${height.value}`);
+                        
+                        // 阶段2: 处理像素
+                        progress.value = 30;
+                        progressMessage.value = '正在进行颜色匹配...';
+                        logs.value.push('🎨 正在进行颜色匹配...');
+                        await sleep(50);
+                        
+                        const result = processPixels(pixels, width.value, height.value, selectedBlocks.value, format.value);
+                        logs.value.push(`✅ 颜色匹配完成: ${result.blockPalette.length} 种方块类型`);
+                        logs.value.push(`📐 尺寸: ${width.value} × ${height.value} × 1`);
+                        
+                        // 阶段3: 生成输出文件
+                        progress.value = 60;
+                        progressMessage.value = '正在生成输出文件...';
+                        logs.value.push(`📁 正在生成 .${format.value} 格式...`);
+                        await sleep(50);
+                        
+                        const filename = `sunpixel_${Date.now()}.${format.value}`;
+                        const { blob } = await generateOutput(result, format.value, filename);
+                        downloadBlob.value = blob;
+                        downloadFilename.value = filename;
+                        
+                        // 阶段4: 生成预览
+                        progress.value = 85;
+                        progressMessage.value = '正在生成预览...';
+                        resultPreview.value = generatePreview(pixels, result, width.value, height.value);
+                        
+                        // 完成
+                        progress.value = 100;
+                        progressMessage.value = '转换完成！';
+                        logs.value.push('✅ 转换成功完成!');
+                        
+                        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                        stats.value = {
+                            width: width.value,
+                            height: height.value,
+                            totalBlocks: width.value * height.value,
+                            blockTypes: result.blockPalette.length,
+                            elapsed: elapsed
+                        };
+                        blockCounts.value = result.blockCounts;
+                        showCounter.value = true;
+                        
+                    } catch (e) {
+                        progressMessage.value = `错误: ${e.message}`;
+                        logs.value.push(`❌ 转换失败: ${e.message}`);
+                    } finally {
+                        isConverting.value = false;
+                    }
+                }
+
+                function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+                function downloadFile() {
+                    if (downloadBlob.value) {
+                        const url = URL.createObjectURL(downloadBlob.value);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = downloadFilename.value;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }
+                }
+
+                function logClass(log) {
+                    if (log.includes('✅')) return 'log-entry log-success';
+                    if (log.includes('❌')) return 'log-entry log-error';
+                    if (log.includes('⚠️')) return 'log-entry log-warning';
+                    if (log.includes('🔄') || log.includes('🚀')) return 'log-entry log-info';
+                    return 'log-entry';
+                }
+
+                let notifTimeout = null;
+                function showMessage(title, message, type = 'info') {
+                    if (notifTimeout) clearTimeout(notifTimeout);
+                    const existing = document.querySelector('.notification');
+                    if (existing) existing.remove();
+                    const div = document.createElement('div');
+                    div.className = 'notification';
+                    const colors = { success: '#2ecc71', error: '#e74c3c', warning: '#f39c12', info: '#3498db' };
+                    div.style.background = colors[type] || colors.info;
+                    div.innerHTML = `<strong>${title}</strong><br>${message}`;
+                    document.body.appendChild(div);
+                    notifTimeout = setTimeout(() => {
+                        div.style.animation = 'slideOutRight 0.3s ease';
+                        setTimeout(() => div.remove(), 300);
+                    }, 3000);
+                }
+
+                onMounted(() => {
+                    loadAvailableBlocks();
+                    loadChangelog();
+                });
+
+                return {
+                    format, width, height, selectedBlocks, allBlocks,
+                    uploadedImage, originalPreview, resultPreview,
+                    showPreview, showProgress, showCounter, showChangelog,
+                    progress, progressMessage, logs, isConverting,
+                    downloadBlob, blockCounts, changelogs, fileInput,
+                    progressBarClass,
+                    triggerFileInput, handleDrop, handleFileUpload,
+                    getBlockDisplayName, toggleBlock,
+                    startConversion, downloadFile,
+                    formatChangelog, logClass, showMessage,
+                    stats
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

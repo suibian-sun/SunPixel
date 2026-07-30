@@ -49,15 +49,6 @@ func main() {
                 cfg = &config.Config{} // 使用默认配置
             }
             
-            // 检查时间炸弹
-            if !utils.CheckTimeBomb() {
-                fmt.Println("\n❌ 程序无法运行，请检查有效期。")
-                input := ""
-                fmt.Print("按Enter键退出...")
-                fmt.Scanln(&input)
-                return
-            }
-            
             // 启动资源监控
             resourceMonitor.Start()
             

@@ -1,0 +1,6 @@
+name = "sunpixel"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 构建输出目录设为 web/ 子目录
+pages_build_output_dir = "web"

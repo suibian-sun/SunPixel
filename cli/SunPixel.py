@@ -15,6 +15,7 @@ import re
 import sys
 import threading
 from io import BytesIO, StringIO, TextIOBase, IOBase
+import gc
 from typing import Dict, List, Union
 from enum import Enum
 
@@ -60,34 +61,18 @@ class TypeCheckList(list):
         for obj in iterable:
             self.append(obj)
 
-# ====== 新增功能：资源监控和时间检查 ======
+# ====== 资源监控 ======
 
-# 全局变量用于资源监控
-import threading
-import psutil
-import gc
-from dataclasses import dataclass
-from typing import Optional
-import requests
+# psutil 可选导入
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+    psutil = None
 
 # 资源监控全局变量
 resource_lock = threading.Lock()
-monitor_thread: Optional[threading.Thread] = None
-monitor_running = False
-max_memory_mb = 0.0
-
-@dataclass
-class TimeResponse:
-    """服务器时间响应结构"""
-    code: int
-    message: str
-    details: str
-    entity: dict
-    
-    @property
-    def current_time(self) -> int:
-        """获取当前时间戳"""
-        return self.entity.get("current", 0)
 
 class ResourceMonitor:
     """资源监控器"""
@@ -101,6 +86,10 @@ class ResourceMonitor:
         if self.running:
             return
         
+        if not HAS_PSUTIL:
+            print(f"📊 资源监控: psutil 未安装，跳过内存监控")
+            return
+        
         self.running = True
         self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self.monitor_thread.start()
@@ -108,6 +97,8 @@ class ResourceMonitor:
         
     def stop(self):
         """停止资源监控"""
+        if not self.running:
+            return
         self.running = False
         if self.monitor_thread:
             self.monitor_thread.join(timeout=2)
@@ -115,6 +106,9 @@ class ResourceMonitor:
         
     def _monitor_loop(self):
         """监控循环，1秒采样一次"""
+        if not HAS_PSUTIL:
+            return  # psutil未安装，不执行监控
+        
         process = psutil.Process()
         
         while self.running:
@@ -244,15 +238,17 @@ class RunAway:
 
 def show_max_resource_usage():
     """展示最高资源占用"""
-    global_monitor.stop()
+    if global_monitor.running:
+        global_monitor.stop()
     
     max_memory = global_monitor.get_max_memory_usage()
     
-    print(f"\n{'='*50}")
-    print(f"📊 程序运行资源统计")
-    print(f"{'='*50}")
-    print(f"最高内存占用: {max_memory:.2f} MB")
-    print(f"{'='*50}")
+    if max_memory > 0:
+        print(f"\n{'='*50}")
+        print(f"📊 程序运行资源统计")
+        print(f"{'='*50}")
+        print(f"最高内存占用: {max_memory:.2f} MB")
+        print(f"{'='*50}")
     
     return max_memory
 
@@ -321,47 +317,6 @@ def cleanup_temp_files():
                     print(f"🧹 清理临时zip文件: {entry}")
                 except Exception as e:
                     print(f"⚠️  清理{entry}文件失败: {e}")
-
-def check_time_bomb() -> bool:
-    """检查时间炸弹，如果当前时间超过明天这个时间，程序将无法运行"""
-    print(f"\n⏰ 正在检查程序有效期...")
-    
-    try:
-        # 获取服务器时间
-        response = requests.get("https://g79mclobt.minecraft.cn/server-time", timeout=10)
-        response.raise_for_status()
-        
-        data = response.json()
-        time_resp = TimeResponse(
-            code=data.get("code", 0),
-            message=data.get("message", ""),
-            details=data.get("details", ""),
-            entity=data.get("entity", {})
-        )
-        
-        # 当前服务器时间
-        current_time = time_resp.current_time
-        if current_time == 0:
-            print(f"❌ 无法获取有效的时间戳，有效期检查失败")
-            return False
-        
-        # 计算炸弹时间：当前时间戳 + 1天
-        bomb_time = current_time + 86400
-        
-        # 如果当前时间超过了炸弹时间，程序无法运行
-        if current_time > bomb_time:
-            print(f"❌ 程序已过期，无法继续运行。")
-            return False
-        
-        print(f"✅ 程序有效期检查通过。")
-        return True
-        
-    except requests.exceptions.RequestException as e:
-        print(f"❌ 无法连接到时间服务器，有效期检查失败: {e}")
-        return False
-    except Exception as e:
-        print(f"❌ 有效期检查过程中发生错误: {e}")
-        return False
 
 def bye():
     """程序退出清理"""
@@ -1216,12 +1171,6 @@ def main():
     try:
         # 初始化配置
         config = Config()
-        
-        # 检查时间炸弹
-        if not check_time_bomb():
-            print(f"\n❌ 程序无法运行，请检查有效期。")
-            input(f"按Enter键退出...")
-            return
         
         # 启动资源监控
         global_monitor.start()

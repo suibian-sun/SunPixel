@@ -19,6 +19,11 @@ func NewConverterManager() *ConverterManager {
     // 注册内置转换器
     manager.RegisterConverter("schem", NewSchemConverter())
     manager.RegisterConverter("json", NewJSONConverter())
+    manager.RegisterConverter("litematic", NewLitematicConverter())
+    manager.RegisterConverter("bdx", NewBDXConverter())
+    manager.RegisterConverter("mcfunction", NewMCFunctionConverter())
+    manager.RegisterConverter("mcstructure", NewMCStructureConverter())
+    manager.RegisterConverter("mcworld", NewMCWorldConverter())
     
     return manager
 }
