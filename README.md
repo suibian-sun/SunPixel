@@ -1,9 +1,10 @@
 # SunPixel 项目文档
 
-> ## 🎨 V-2.1.0 像素画引擎重做
+> ## 🎨 V-2.1.1 界面简化与预览修复
 >
-> **本次更新重做了 Web 版的整条像素画流程**：修掉了会让导出的投影"只剩一种方块"的缺陷，
-> 并新增文字像素画、Floyd–Steinberg 抖动、透明像素、平铺/竖立摆放与手动搭建图纸。
+> **本次把 Web 界面改成单色简约风格，并重写了预览**：效果图按真实体素投影绘制，
+> 竖立摆放不再上下颠倒，改参数自动刷新；同时修正了 `.mcstructure` 的大端／gzip 编码错误
+> （上一版导出的基岩版结构游戏读不了）与 X/Z 轴对调。
 >
 > 详细说明见 [web/Changelog/2026-11-07.md](web/Changelog/2026-11-07.md)。
 >
@@ -98,10 +99,10 @@ SunPixel/
   - `requests` - HTTP 请求
 
 ### Web 版本
-- **运行环境**：现代浏览器，零构建、零运行时依赖
+- **运行环境**：现代浏览器，零构建
 - **核心**：
-  - `Vue 3`（CDN 全局构建） - 界面
-  - `Canvas 2D` - 缩放、取像素、文字渲染
+  - `Vue 3`（`web/vendor/vue.global.prod.js`，随仓库发布，不依赖 CDN） - 界面
+  - `Canvas 2D` - 缩放、取像素、文字渲染、效果图预览
   - `CompressionStream` - gzip 压缩 NBT
   - 自研 NBT 编码器 - 生成 `.schem` / `.litematic` / `.mcstructure`
 - **托管**：Cloudflare Pages（`functions/` 提供方块列表与更新记录接口）

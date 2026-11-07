@@ -9,7 +9,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -67,7 +67,7 @@ img.save(${JSON.stringify(path)})
   return path;
 }
 
-function gunzipHead(path) {
+function gzipHead(path) {
   const raw = readFileSync(path);
   return raw[0] === 0x1f && raw[1] === 0x8b;
 }
@@ -95,69 +95,158 @@ async function saveDownload(trigger, name) {
   return target;
 }
 
+/** 当前已完成多少轮转换 */
+async function runCount() {
+  return page.evaluate(() => Number(document.documentElement.dataset.run || 0));
+}
+
+/** 等下一轮转换结束（比轮询按钮状态可靠：自动刷新也会计入轮次） */
+async function waitRun(previous, timeout = 30000) {
+  await page.waitForFunction(
+    (prev) => Number(document.documentElement.dataset.run || 0) > prev,
+    previous,
+    { timeout }
+  );
+  await page.waitForSelector('#download-file:not([disabled])', { timeout: 10000 });
+}
+
+/** 读取预览画布的位图尺寸与显示尺寸 */
+function readPreview() {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('#preview-item canvas');
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext('2d');
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let opaque = 0;
+    for (let i = 3; i < data.length; i += 4) if (data[i] > 0) opaque++;
+    const pixel = (x, y) => {
+      const d = ctx.getImageData(x, y, 1, 1).data;
+      return [d[0], d[1], d[2], d[3]];
+    };
+    return {
+      width: canvas.width,
+      height: canvas.height,
+      cssWidth: Math.round(rect.width),
+      cssHeight: Math.round(rect.height),
+      opaque,
+      topLeft: pixel(1, 1),
+      bottomLeft: pixel(1, canvas.height - 2)
+    };
+  });
+}
+
 try {
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'networkidle' });
 
   /* ---------- 1. 文字像素画 ---------- */
   await page.click('#mode-text');
+  let mark = await runCount();
   await page.fill('#text-input', 'Sun\n像素');
   await page.fill('#width-input', '64');
-  await page.click('#convert-btn');
+  await waitRun(mark);
   await page.waitForSelector('#result-card', { timeout: 20000 });
 
   const textStats = await page.textContent('.stat-card .stat-value');
   assert.match(textStats, /\d+\s*×\s*\d+/, '文字模式未产出尺寸');
-  const previewSrc = await page.getAttribute('#preview-item img', 'src');
-  assert.ok(previewSrc?.startsWith('data:image/png'), '缺少效果图');
+
+  const textPreview = await readPreview();
+  assert.ok(textPreview, '缺少预览画布');
+  assert.equal(textPreview.width, 64, '预览画布宽度应等于方块宽度');
+  assert.ok(textPreview.cssWidth > 100, `预览显示宽度过小：${textPreview.cssWidth}`);
+  assert.ok(textPreview.opaque > 0, '预览画布是空的');
 
   const schemPath = await saveDownload(() => page.click('#download-file'), 'text.schem');
-  assert.ok(gunzipHead(schemPath), '下载的 .schem 不是 gzip');
+  assert.ok(gzipHead(schemPath), '下载的 .schem 不是 gzip');
   results.push(['文字模式 .schem', `${schemPath} (${readFileSync(schemPath).length} B)`]);
 
-  /* ---------- 2. 图片像素画 + litematic ---------- */
+  /* ---------- 2. 图片像素画：上传后应自动出预览 ---------- */
   const fixture = makeFixture();
   await page.click('#mode-image');
+  mark = await runCount();
   await page.setInputFiles('#file-input', fixture);
+  await waitRun(mark);
   await page.waitForSelector('.hint:has-text("当前图片")', { timeout: 10000 });
-  await page.selectOption('#format-select', 'litematic');
-  await page.click('#convert-btn');
-  await page.waitForSelector('#result-card', { timeout: 20000 });
 
+  const imagePreview = await readPreview();
+  const currentWidth = Number(await page.inputValue('#width-input'));
+  assert.equal(imagePreview.width, currentWidth, '预览画布宽度应跟随宽度设置');
+  assert.ok(imagePreview.cssWidth >= 200, '预览图没有放大到可读尺寸');
+  // 样例图上半红、下半蓝，预览顶部应偏红、底部偏蓝
+  assert.ok(imagePreview.topLeft[0] > imagePreview.topLeft[2], '预览上方应为红色系');
+  assert.ok(imagePreview.bottomLeft[2] > imagePreview.bottomLeft[0], '预览下方应为蓝色系');
+  results.push(['图片模式预览', `${imagePreview.width}×${imagePreview.height} 位图，显示 ${imagePreview.cssWidth}px`]);
+
+  /* ---------- 3. 竖立摆放时预览不能上下颠倒 ---------- */
+  mark = await runCount();
+  await page.selectOption('#plane-select', 'xy');
+  await waitRun(mark);
+  const wallPreview = await readPreview();
+  assert.ok(wallPreview.topLeft[0] > wallPreview.topLeft[2], '竖立时预览上方仍应是红色系');
+  assert.ok(wallPreview.bottomLeft[2] > wallPreview.bottomLeft[0], '竖立时预览下方仍应是蓝色系');
+  results.push(['竖立预览方向', '上红下蓝，未翻转']);
+  mark = await runCount();
+  await page.selectOption('#plane-select', 'xz');
+  await waitRun(mark);
+
+  /* ---------- 4. 切换格式并下载 litematic ---------- */
+  await page.selectOption('#format-select', 'litematic');
+  mark = await runCount();
+  await page.click('#convert-btn');
+  await waitRun(mark);
   const litematicPath = await saveDownload(() => page.click('#download-file'), 'image.litematic');
-  assert.ok(gunzipHead(litematicPath), '下载的 .litematic 不是 gzip');
+  assert.ok(gzipHead(litematicPath), '下载的 .litematic 不是 gzip');
   results.push(['图片模式 .litematic', `${litematicPath} (${readFileSync(litematicPath).length} B)`]);
 
-  /* ---------- 3. 图纸与材料表 ---------- */
+  /* ---------- 5. mcstructure 必须是小端未压缩 NBT ---------- */
+  await page.selectOption('#format-select', 'mcstructure');
+  mark = await runCount();
+  await page.click('#convert-btn');
+  await waitRun(mark);
+  const mcPath = await saveDownload(() => page.click('#download-file'), 'image.mcstructure');
+  const mcRaw = readFileSync(mcPath);
+  assert.ok(!(mcRaw[0] === 0x1f && mcRaw[1] === 0x8b), '.mcstructure 不应被 gzip 压缩');
+  assert.equal(mcRaw[0], 10, '.mcstructure 应以 TAG_Compound 开头');
+  results.push(['基岩版 .mcstructure', `${mcPath} (${mcRaw.length} B，未压缩)`]);
+
+  /* ---------- 6. 图纸与材料表 ---------- */
   const blueprintPath = await saveDownload(() => page.click('#download-blueprint'), 'build.md');
   const blueprint = readFileSync(blueprintPath, 'utf8');
   assert.match(blueprint, /## 图例/, '图纸缺少图例');
   assert.match(blueprint, /## 逐行图纸/, '图纸缺少逐行内容');
-  results.push(['手动搭建图纸', `${blueprintPath} (${blueprint.split('\n').length} 行)`]);
+  results.push(['搭建图纸', `${blueprintPath} (${blueprint.split('\n').length} 行)`]);
 
   const csvPath = await saveDownload(() => page.click('#download-csv'), 'materials.csv');
   const csvLines = readFileSync(csvPath, 'utf8').trim().split('\n');
   assert.equal(csvLines[0], 'x,y,z,block');
   results.push(['材料清单', `${csvPath} (${csvLines.length - 1} 行数据)`]);
 
-  /* ---------- 4. 透明区域应变成空气 ---------- */
-  const airLine = await page.textContent('.card');
-  assert.ok(!/undefined/.test(airLine), '结果区出现 undefined');
+  const cardText = await page.textContent('#result-card');
+  assert.ok(!/undefined|NaN/.test(cardText), '结果区出现 undefined / NaN');
 
   await page.screenshot({ path: join(downloadDir, 'screenshot.png'), fullPage: true });
   results.push(['页面截图', join(downloadDir, 'screenshot.png')]);
 
-  /* ---------- 5. 用独立实现校验下载的投影 ---------- */
+  /* ---------- 7. 用独立实现校验下载的投影 ---------- */
   const validateDir = mkdtempSync(join(tmpdir(), 'sunpixel-validate-'));
   writeFileSync(join(validateDir, 'sample.schem'), readFileSync(schemPath));
   writeFileSync(join(validateDir, 'sample.litematic'), readFileSync(litematicPath));
+  writeFileSync(join(validateDir, 'sample.mcstructure'), readFileSync(mcPath));
   const report = JSON.parse(
     execFileSync('python3', [join(here, 'validate_nbt.py'), validateDir], { encoding: 'utf8' })
   );
   assert.ok(!report.schem.error, report.schem.error);
   assert.ok(!report.litematic.error, report.litematic.error);
+  assert.ok(!report.mcstructure.error, report.mcstructure.error);
   assert.ok(report.schem.blocks.length > 0, 'schem 没有方块');
   assert.ok(report.litematic.states.some((v) => v > 0), 'litematic 全是空气/索引 0');
-  results.push(['nbtlib 校验', `schem ${report.schem.width}×${report.schem.height}×${report.schem.length}，litematic ${report.litematic.palette.length} 种方块`]);
+  assert.equal(report.mcstructure.size[0], currentWidth, 'mcstructure 宽度不对');
+  results.push([
+    'nbtlib 校验',
+    `schem ${report.schem.width}×${report.schem.height}×${report.schem.length}，` +
+    `litematic ${report.litematic.palette.length} 种方块，` +
+    `mcstructure ${report.mcstructure.palette.length} 种方块`
+  ]);
 
   assert.deepEqual(errors, [], `页面报错：${errors.join(' | ')}`);
 

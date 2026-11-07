@@ -1,15 +1,16 @@
 const AIR = 'minecraft:air';
 
-/** 图例字符：A-Z 之后用 a-z，再不够用 #n */
+/**
+ * 图例字符：A-Z → a-z → 0-9，共 62 个单字符。
+ * 必须保证每格只占 1 个字符，否则逐行图纸会错位；超出部分统一用 ? 占位。
+ */
+const LEGEND_SYMBOLS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
 function buildLegend(palette) {
   const used = palette.filter((name) => name !== AIR);
   const legend = new Map();
   used.forEach((name, index) => {
-    let symbol;
-    if (index < 26) symbol = String.fromCharCode(65 + index);
-    else if (index < 52) symbol = String.fromCharCode(97 + index - 26);
-    else symbol = `#${index}`;
-    legend.set(name, symbol);
+    legend.set(name, LEGEND_SYMBOLS[index] || '?');
   });
   return legend;
 }
@@ -38,6 +39,9 @@ function generateBlueprint(result, meta = {}) {
   lines.push(`- 尺寸：**${width} × ${height}**${plane === 'xy' ? '（竖立，贴墙）' : '（平铺，地面）'}`);
   lines.push(`- 方块总数：**${result.totalBlocks}**（空气 ${result.airCount}）`);
   lines.push(`- 方块种类：**${counts.size}**`);
+  if (counts.size > LEGEND_SYMBOLS.length) {
+    lines.push(`- 注意：方块超过 ${LEGEND_SYMBOLS.length} 种，图纸中第 ${LEGEND_SYMBOLS.length} 种之后的方块以 \`?\` 表示，请对照材料清单`);
+  }
   lines.push(`- 生成时间：${new Date().toLocaleString('zh-CN')}`);
   lines.push('');
   lines.push('## 材料清单');
@@ -117,4 +121,4 @@ function generateMaterialCsv(result) {
   };
 }
 
-export { generateBlueprint, generateMaterialCsv, buildLegend };
+export { generateBlueprint, generateMaterialCsv, buildLegend, LEGEND_SYMBOLS };

@@ -45,6 +45,8 @@ async function generateSchem(result, meta = {}) {
     Height: nbt.short(size.y),
     Length: nbt.short(size.z),
     Offset: nbt.intArray([0, 0, 0]),
+    // Sponge v2 规范要求该字段，WorldEdit 用它预估调色板大小
+    PaletteMax: nbt.int(palette.length),
     Palette: nbt.compound(paletteCompound),
     BlockData: nbt.byteArray(Uint8Array.from(blockData)),
     BlockEntities: nbt.list(10, [])

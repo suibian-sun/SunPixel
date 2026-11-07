@@ -1,5 +1,8 @@
 /**
- * 最小化 NBT 二进制编码器（大端序，Java Edition 规范）
+ * 最小化 NBT 二进制编码器
+ *
+ * 默认大端序（Java Edition / Sponge / Litematica），
+ * 传 { littleEndian: true } 输出小端序（Bedrock 的 .mcstructure 必须用小端）。
  *
  * 相比旧版本修复了以下问题：
  *  - TAG_Long_Array 缺少写入分支，导致 litematic 的 BlockStates 完全丢失
@@ -43,10 +46,11 @@ const nbt = {
 };
 
 class NBTWriter {
-  constructor(initialSize = 1 << 16) {
+  constructor(initialSize = 1 << 16, options = {}) {
     this.buffer = new ArrayBuffer(initialSize);
     this.view = new DataView(this.buffer);
     this.offset = 0;
+    this.littleEndian = !!options.littleEndian;
   }
 
   ensure(size) {
@@ -68,32 +72,32 @@ class NBTWriter {
 
   writeShort(value) {
     this.ensure(2);
-    this.view.setInt16(this.offset, (value << 16) >> 16);
+    this.view.setInt16(this.offset, (value << 16) >> 16, this.littleEndian);
     this.offset += 2;
   }
 
   writeInt(value) {
     this.ensure(4);
-    this.view.setInt32(this.offset, value | 0);
+    this.view.setInt32(this.offset, value | 0, this.littleEndian);
     this.offset += 4;
   }
 
   writeLong(value) {
     this.ensure(8);
     const big = typeof value === 'bigint' ? value : BigInt(Math.trunc(Number(value)));
-    this.view.setBigInt64(this.offset, BigInt.asIntN(64, big));
+    this.view.setBigInt64(this.offset, BigInt.asIntN(64, big), this.littleEndian);
     this.offset += 8;
   }
 
   writeFloat(value) {
     this.ensure(4);
-    this.view.setFloat32(this.offset, value);
+    this.view.setFloat32(this.offset, value, this.littleEndian);
     this.offset += 4;
   }
 
   writeDouble(value) {
     this.ensure(8);
-    this.view.setFloat64(this.offset, value);
+    this.view.setFloat64(this.offset, value, this.littleEndian);
     this.offset += 8;
   }
 

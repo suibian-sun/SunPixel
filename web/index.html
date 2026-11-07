@@ -1,667 +1,537 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%238e44ad'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23f4d03f'/%3E%3C/svg%3E">
-    <title>SunPixel - 像素画转Minecraft结构</title>
-    <meta name="description" content="SunPixel：把图片或文字转换成 Minecraft 结构文件，支持 .schem / .litematic / .mcstructure / .mcfunction 等格式。">
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <style>
-        :root {
-            --primary-color: #8e44ad;
-            --primary-dark: #7d3c98;
-            --secondary-color: #2ecc71;
-            --dark-bg: #1a1a1a;
-            --light-bg: #f8f9fa;
-            --text-color: #333;
-            --text-light: #666;
-            --border-color: #ddd;
-            --shadow: 0 2px 10px rgba(0,0,0,0.1);
-            --gradient-start: #8e44ad;
-            --gradient-mid: #3498db;
-            --gradient-end: #2ecc71;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a1a1a'/%3E%3Crect x='8' y='8' width='16' height='16' fill='%23f2c14e'/%3E%3C/svg%3E">
+<title>SunPixel · 图片转 Minecraft 结构</title>
+<meta name="description" content="SunPixel：把图片或文字转换成 Minecraft 结构文件，支持 .schem / .litematic / .mcstructure / .mcfunction 等格式。">
+<!-- Vue 运行时随仓库一起发布，避免 CDN 不可达时整页白屏 -->
+<script src="./vendor/vue.global.prod.js"></script>
+<style>
+    :root {
+        --text: #1a1a1a;
+        --muted: #6b7280;
+        --line: #e4e4e7;
+        --line-strong: #d4d4d8;
+        --bg: #ffffff;
+        --soft: #fafafa;
+        --btn: #1a1a1a;
+        --btn-hover: #333333;
+        --err: #b42318;
+        --ok: #1a7f37;
+    }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            background: var(--light-bg);
-            color: var(--text-color);
-            min-height: 100vh;
-        }
+    html { -webkit-text-size-adjust: 100%; }
 
-        .navbar {
-            background: white;
-            box-shadow: var(--shadow);
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-        }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                     "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--text);
+        background: var(--bg);
+    }
 
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 60px;
-        }
+    a { color: inherit; }
 
-        .logo { display: flex; align-items: center; gap: 10px; }
-        .logo i { font-size: 24px; color: var(--primary-color); }
-        .logo h1 { font-size: 24px; color: var(--primary-color); }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 0 20px; }
 
-        .nav-links { display: flex; gap: 30px; list-style: none; }
-        .nav-links a {
-            text-decoration: none;
-            color: var(--text-color);
-            font-weight: 500;
-            padding: 8px 12px;
-            border-radius: 4px;
-            transition: all 0.3s;
-            cursor: pointer;
-        }
-        .nav-links a:hover, .nav-links a.active { background: var(--primary-color); color: white; }
+    /* ---------- 顶栏 ---------- */
+    .topbar { border-bottom: 1px solid var(--line); }
+    .topbar .bar { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+    .brand { font-size: 15px; font-weight: 600; letter-spacing: 0.01em; }
+    .brand small { font-weight: 400; color: var(--muted); margin-left: 8px; font-size: 13px; }
+    .nav { display: flex; gap: 18px; font-size: 13px; color: var(--muted); }
+    .nav a { text-decoration: none; cursor: pointer; }
+    .nav a:hover { color: var(--text); }
 
-        .main-content { max-width: 1200px; margin: 80px auto 20px; padding: 0 20px; }
-        .page-header { margin-bottom: 24px; }
-        .page-header h2 { font-size: 28px; color: var(--primary-color); display: flex; align-items: center; gap: 10px; }
+    /* ---------- 主体 ---------- */
+    main { padding: 28px 0 64px; }
 
-        .card {
-            background: white;
-            border-radius: 10px;
-            box-shadow: var(--shadow);
-            padding: 30px;
-            margin-bottom: 30px;
-        }
+    .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
+    .tabs button {
+        padding: 7px 20px;
+        font: inherit;
+        font-size: 13px;
+        color: var(--muted);
+        background: var(--bg);
+        border: 0;
+        cursor: pointer;
+    }
+    .tabs button + button { border-left: 1px solid var(--line); }
+    .tabs button.on { background: var(--soft); color: var(--text); font-weight: 500; }
 
-        .card-header {
-            font-size: 22px;
-            color: var(--primary-color);
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid var(--border-color);
-            display: flex;
-            align-items: center;
-        }
-        .card-header i { margin-right: 10px; }
+    .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 16px;
+    }
 
-        .mode-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-        .mode-tabs button {
-            flex: 1;
-            padding: 16px;
-            border: 2px solid var(--border-color);
-            border-radius: 10px;
-            background: white;
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-light);
-            cursor: pointer;
-            transition: all 0.25s;
-        }
-        .mode-tabs button:hover { border-color: var(--primary-color); color: var(--primary-color); }
-        .mode-tabs button.active {
-            border-color: var(--primary-color);
-            color: white;
-            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
-            box-shadow: 0 6px 18px rgba(142,68,173,0.25);
-        }
+    .hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
 
-        .config-panel { background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 30px; }
-        .config-section { margin-bottom: 25px; }
-        .config-section:last-child { margin-bottom: 0; }
-        .config-section h4 { color: var(--primary-color); margin-bottom: 15px; padding-bottom: 8px; border-bottom: 1px dashed var(--border-color); }
-        .form-group { margin-bottom: 15px; }
-        .form-label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-color); font-size: 14px; }
-        .form-control {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 15px;
-            transition: border 0.3s;
-            background: white;
-        }
-        .form-control:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(142,68,173,0.15); }
-        textarea.form-control { min-height: 110px; resize: vertical; font-family: inherit; }
+    /* ---------- 表单 ---------- */
+    .input {
+        width: 100%;
+        font: inherit;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--line-strong);
+        border-radius: 5px;
+        padding: 7px 10px;
+        height: 34px;
+    }
+    .input:focus { outline: none; border-color: #9ca3af; }
+    .textarea { height: auto; min-height: 92px; padding: 9px 10px; resize: vertical; line-height: 1.5; }
 
-        .upload-section {
-            margin-bottom: 15px;
-            padding: 30px;
-            border: 2px dashed var(--border-color);
-            border-radius: 8px;
-            text-align: center;
-            transition: all 0.3s;
-            cursor: pointer;
-            background: white;
-        }
-        .upload-section:hover { border-color: var(--primary-color); background: rgba(142,68,173,0.04); }
-        .upload-icon { font-size: 48px; color: var(--primary-color); margin-bottom: 15px; }
-        .upload-text { font-size: 16px; color: var(--text-light); margin-bottom: 15px; }
+    .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .field > span { font-size: 12px; color: var(--muted); }
 
-        .url-row { display: flex; gap: 10px; }
-        .url-row .form-control { flex: 1; }
-        .url-row button {
-            padding: 0 18px;
-            border: 1px solid var(--primary-color);
-            background: white;
-            color: var(--primary-color);
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            white-space: nowrap;
-        }
-        .url-row button:hover { background: var(--primary-color); color: white; }
+    .grid { display: grid; gap: 12px; margin-bottom: 12px; }
+    .grid:last-child { margin-bottom: 0; }
+    .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background 0.3s;
-            text-decoration: none;
-            text-align: center;
-            min-width: 120px;
-            margin: 5px;
-        }
-        .btn:hover { background: var(--primary-dark); }
-        .btn:disabled { background: #bdc3c7; cursor: not-allowed; }
-        .btn-outline { background: transparent; border: 1px solid var(--primary-color); color: var(--primary-color); }
-        .btn-outline:hover { background: var(--primary-color); color: white; }
-        .btn-sm { padding: 8px 14px; font-size: 14px; min-width: auto; }
+    .inline { display: flex; gap: 8px; }
+    .inline .input { flex: 1; }
 
-        .btn-group { display: flex; gap: 15px; flex-wrap: wrap; margin: 20px 0; justify-content: center; }
+    .drop {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 28px 16px;
+        border: 1px dashed var(--line-strong);
+        border-radius: 8px;
+        background: var(--soft);
+        cursor: pointer;
+        text-align: center;
+    }
+    .drop:hover { border-color: #9ca3af; }
+    .drop-main { font-size: 13px; }
+    .drop-sub { font-size: 12px; color: var(--muted); }
 
-        .preview-section { margin-top: 30px; }
-        .preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
-        .preview-item { text-align: center; padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background: white; }
-        .preview-image {
-            max-width: 100%;
-            max-height: 320px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            object-fit: contain;
-            image-rendering: pixelated;
-            background-image:
-                linear-gradient(45deg, #eee 25%, transparent 25%),
-                linear-gradient(-45deg, #eee 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, #eee 75%),
-                linear-gradient(-45deg, transparent 75%, #eee 75%);
-            background-size: 16px 16px;
-            background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-        }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
 
-        .progress-section { background: white; border-radius: 8px; padding: 20px; margin-top: 20px; border: 1px solid var(--border-color); }
-        .progress { height: 25px; background: #e9ecef; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
-        .progress-bar {
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 500;
-            background: var(--primary-color);
-            transition: width 0.3s;
-        }
-        .progress-info { margin-top: 10px; }
+    .checks { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: #374151; }
+    .checks label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .checks input { accent-color: var(--btn); }
 
-        .logs {
-            max-height: 200px;
-            overflow-y: auto;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            border: 1px solid #e9ecef;
-            margin-top: 15px;
-            font-family: monospace;
-            font-size: 14px;
-        }
-        .log-entry { margin-bottom: 5px; line-height: 1.4; }
-        .log-success { color: #28a745; }
-        .log-error { color: #dc3545; }
-        .log-warning { color: #e6a700; }
-        .log-info { color: #17a2b8; }
+    /* ---------- 折叠区 ---------- */
+    details { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 4px; }
+    summary {
+        cursor: pointer;
+        font-size: 13px;
+        color: var(--muted);
+        padding: 8px 0 4px;
+        list-style: none;
+        user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: "＋ "; }
+    details[open] summary::before { content: "－ "; }
+    details[open] summary { color: var(--text); }
+    details > *:not(summary) { margin-top: 10px; }
 
-        .block-selection {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .block-item {
-            padding: 10px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: white;
-            font-size: 14px;
-        }
-        .block-item:hover { border-color: var(--primary-color); }
-        .block-item.selected {
-            border-color: var(--primary-color);
-            background: rgba(142,68,173,0.1);
-            color: var(--primary-dark);
-            font-weight: 600;
-        }
+    .blocks { display: flex; flex-wrap: wrap; gap: 6px; }
+    .block-item {
+        font: inherit;
+        font-size: 12px;
+        padding: 5px 10px;
+        border: 1px solid var(--line-strong);
+        border-radius: 4px;
+        background: var(--bg);
+        color: var(--muted);
+        cursor: pointer;
+    }
+    .block-item:hover { border-color: #9ca3af; color: var(--text); }
+    .block-item.selected { border-color: var(--btn); background: var(--soft); color: var(--text); font-weight: 500; }
 
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-top: 15px; }
-        .stat-card { background: linear-gradient(135deg, #f8f9ff, #f0f0ff); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; text-align: center; }
-        .stat-card .stat-value { font-size: 22px; font-weight: 700; color: var(--primary-color); }
-        .stat-card .stat-label { font-size: 13px; color: var(--text-light); margin-top: 5px; }
-        .counter-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 4px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
-        .counter-item:last-child { border-bottom: none; }
+    /* ---------- 按钮 ---------- */
+    .btn {
+        font: inherit;
+        font-size: 13px;
+        height: 34px;
+        padding: 0 16px;
+        border-radius: 5px;
+        border: 1px solid var(--btn);
+        background: var(--btn);
+        color: #fff;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .btn:hover:not(:disabled) { background: var(--btn-hover); border-color: var(--btn-hover); }
+    .btn:disabled { background: #d4d4d8; border-color: #d4d4d8; color: #fff; cursor: not-allowed; }
+    .btn-ghost { background: var(--bg); color: var(--text); border-color: var(--line-strong); }
+    .btn-ghost:hover:not(:disabled) { background: var(--soft); border-color: #9ca3af; color: var(--text); }
+    .btn-sm { height: 30px; padding: 0 12px; font-size: 12px; }
 
-        .modal {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s;
-        }
-        .modal.active { opacity: 1; visibility: visible; }
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            max-width: 760px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            position: relative;
-            transform: translateY(-20px);
-            transition: transform 0.3s;
-        }
-        .modal.active .modal-content { transform: translateY(0); }
-        .modal-close { position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: var(--text-light); }
-        .modal-title { font-size: 20px; margin-bottom: 20px; color: var(--primary-color); }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .actions .input { flex: 1; min-width: 220px; }
 
-        .changelog-item { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
-        .changelog-item:last-child { border-bottom: none; }
-        .changelog-date { font-size: 18px; font-weight: 600; color: var(--primary-color); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--primary-color); }
-        .changelog-content { line-height: 1.8; color: var(--text-color); font-size: 15px; }
-        .changelog-content h3 { color: var(--primary-color); margin: 20px 0 12px; font-size: 17px; }
-        .changelog-content h4 { color: var(--text-color); margin: 15px 0 8px; font-size: 15px; }
-        .changelog-content ul { margin-left: 20px; margin-bottom: 12px; }
-        .changelog-content li { margin-bottom: 6px; }
-        .changelog-content p { margin-bottom: 12px; }
-        .changelog-content blockquote { border-left: 3px solid var(--primary-color); padding-left: 15px; margin: 10px 0; color: #666; }
+    .status { font-size: 12px; color: var(--muted); margin-top: 10px; }
+    .status.error { color: var(--err); }
 
-        .final-banner {
-            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
-            color: white;
-            text-align: center;
-            padding: 15px 20px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3);
-        }
-        .final-banner h3 { font-size: 20px; margin-bottom: 8px; }
-        .final-banner p { font-size: 14px; opacity: 0.92; line-height: 1.6; }
-        .final-banner .signature { margin-top: 8px; font-style: italic; opacity: 0.8; }
+    /* ---------- 预览 ---------- */
+    .preview { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .preview.single { grid-template-columns: 1fr; }
+    .preview figure { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    .preview figcaption {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 10px;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .preview img,
+    .preview canvas {
+        display: block;
+        margin: 0 auto;
+        image-rendering: pixelated;
+        border-radius: 4px;
+    }
+    .checker {
+        display: flex;
+        justify-content: center;
+        background-color: #fff;
+        background-image:
+            linear-gradient(45deg, #ececec 25%, transparent 25%),
+            linear-gradient(-45deg, #ececec 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, #ececec 75%),
+            linear-gradient(-45deg, transparent 75%, #ececec 75%);
+        background-size: 12px 12px;
+        background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    }
 
-        .notification {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            padding: 15px 20px;
-            border-radius: 6px;
-            color: white;
-            z-index: 3000;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-weight: 500;
-            min-width: 250px;
-            max-width: 400px;
-            animation: slideInRight 0.3s ease;
-        }
-        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+    /* ---------- 结果 ---------- */
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .stat-card { background: var(--bg); padding: 12px 14px; }
+    .stat-card .stat-value { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .stat-card .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-        .row { display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
-        .row .form-group { flex: 1; min-width: 150px; }
+    h3 { font-size: 13px; font-weight: 600; margin: 22px 0 10px; }
 
-        .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; user-select: none; }
-        .switch input { width: 16px; height: 16px; accent-color: var(--primary-color); }
+    .materials { border-top: 1px solid var(--line); max-height: 320px; overflow-y: auto; }
+    .counter-item { display: flex; justify-content: space-between; font-size: 13px; padding: 7px 2px; border-bottom: 1px solid var(--line); }
+    .counter-item span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
 
-        .badge { background: var(--primary-color); color: white; padding: 3px 10px; border-radius: 12px; font-size: 13px; }
+    /* ---------- 弹窗 ---------- */
+    .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        z-index: 100;
+    }
+    .modal-content {
+        background: var(--bg);
+        border-radius: 8px;
+        width: 100%;
+        max-width: 700px;
+        max-height: 80vh;
+        overflow-y: auto;
+        padding: 24px;
+        position: relative;
+    }
+    .modal-close { position: absolute; top: 10px; right: 14px; font-size: 20px; line-height: 1; color: var(--muted); cursor: pointer; background: none; border: 0; }
+    .modal-close:hover { color: var(--text); }
+    .modal-title { font-size: 15px; font-weight: 600; margin-bottom: 18px; }
+    .changelog-item { padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .changelog-item:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+    .changelog-date { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+    .changelog-content { font-size: 13px; color: #374151; line-height: 1.7; }
+    .changelog-content h3 { margin: 14px 0 8px; font-size: 13px; }
+    .changelog-content h4 { margin: 12px 0 6px; font-size: 13px; }
+    .changelog-content ul { margin: 6px 0 10px 20px; }
+    .changelog-content li { margin-bottom: 4px; }
+    .changelog-content p { margin-bottom: 8px; }
+    .changelog-content blockquote { border-left: 2px solid var(--line-strong); padding-left: 12px; color: var(--muted); margin: 8px 0; }
+    .changelog-content a { color: #1d4ed8; }
 
-        .hint { font-size: 12px; color: var(--text-light); margin-top: 6px; line-height: 1.6; }
+    .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 28px;
+        transform: translateX(-50%);
+        background: #1a1a1a;
+        color: #fff;
+        font-size: 13px;
+        padding: 9px 16px;
+        border-radius: 6px;
+        z-index: 200;
+        max-width: 80vw;
+    }
+    .toast.error { background: var(--err); }
+    .toast.success { background: var(--ok); }
 
-        .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .footer { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
 
-        @media (max-width: 768px) {
-            .nav-links { display: none; }
-            .preview-grid { grid-template-columns: 1fr; }
-            .config-panel { padding: 15px; }
-            .btn-group { flex-direction: column; }
-            .btn { width: 100%; }
-            .mode-tabs { flex-direction: column; }
-        }
-    </style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    @media (max-width: 700px) {
+        .g4, .g3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .preview { grid-template-columns: 1fr; }
+        .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .brand small { display: none; }
+        .actions .btn { flex: 1; }
+    }
+</style>
 </head>
 <body>
-    <div id="app">
-        <nav class="navbar">
-            <div class="nav-container">
-                <div class="logo">
-                    <i class="fas fa-sun"></i>
-                    <h1>SunPixel</h1>
-                </div>
-                <ul class="nav-links">
-                    <li><a class="active"><i class="fas fa-home"></i> 控制台</a></li>
-                    <li><a @click="showChangelog = true"><i class="fas fa-clipboard-list"></i> 更新记录</a></li>
-                    <li><a href="https://github.com/suibian-sun/SunPixel" target="_blank" rel="noopener"><i class="fab fa-github"></i> 仓库</a></li>
-                </ul>
-            </div>
-        </nav>
+<div id="app">
+    <header class="topbar">
+        <div class="wrap bar">
+            <div class="brand">SunPixel<small>图片转 Minecraft 结构</small></div>
+            <nav class="nav">
+                <a @click="showChangelog = true">更新记录</a>
+                <a href="https://github.com/suibian-sun/SunPixel" target="_blank" rel="noopener">GitHub</a>
+            </nav>
+        </div>
+    </header>
 
-        <div class="main-content" v-if="!showChangelog">
-            <div class="final-banner">
-                <h3><i class="fas fa-wand-magic-sparkles"></i> V-2.1.0 · 像素画引擎重做</h3>
-                <p>新增文字像素画、Floyd–Steinberg 抖动、透明像素、平铺/竖立摆放与手动搭建图纸；<br>修复了投影里方块全被写成同一种、羊毛黑色变白等问题。</p>
-                <div class="signature">—— SunEcology</div>
-            </div>
-
-            <div class="page-header">
-                <h2><i class="fas fa-palette"></i> 像素画工作台</h2>
-            </div>
-
-            <div class="mode-tabs">
-                <button id="mode-image" :class="{ active: mode === 'image' }" @click="mode = 'image'">
-                    <i class="fas fa-image"></i> 图片像素画
-                </button>
-                <button id="mode-text" :class="{ active: mode === 'text' }" @click="mode = 'text'">
-                    <i class="fas fa-font"></i> 文字像素画
-                </button>
-            </div>
-
-            <div class="config-panel">
-                <!-- 图片模式 -->
-                <div class="config-section" v-if="mode === 'image'">
-                    <h4><i class="fas fa-upload"></i> 选择图片</h4>
-                    <div class="upload-section" @click="triggerFileInput" @dragover.prevent @drop.prevent="handleDrop">
-                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <div class="upload-text">点击选择、拖拽图片到这里，或使用下方链接载入</div>
-                        <div style="font-size:13px;color:var(--text-light)">支持 PNG / JPG / WEBP</div>
-                        <input id="file-input" type="file" ref="fileInput" accept="image/*" style="display: none;" @change="handleFileUpload">
-                    </div>
-                    <div class="url-row">
-                        <input class="form-control" v-model="imageUrl" placeholder="也可以粘贴图片 URL，例如 https://..."
-                               @keyup.enter="loadImageFromUrl">
-                        <button @click="loadImageFromUrl"><i class="fas fa-link"></i> 载入</button>
-                    </div>
-                    <div class="hint" v-if="uploadedFileName">当前图片：{{ uploadedFileName }}</div>
-                </div>
-
-                <!-- 文字模式 -->
-                <div class="config-section" v-else>
-                    <h4><i class="fas fa-font"></i> 文字内容</h4>
-                    <div class="form-group">
-                        <textarea id="text-input" class="form-control" v-model="text" placeholder="输入要转成像素画的文字，支持多行"></textarea>
-                        <div class="hint">支持中文、英文与符号；换行即换行，字号会自动缩放到画布内。</div>
-                    </div>
-                    <div class="row">
-                        <div class="form-group">
-                            <label class="form-label">字体</label>
-                            <select class="form-control" v-model="fontFamily">
-                                <option value="system">系统无衬线（推荐）</option>
-                                <option value="heiti">黑体</option>
-                                <option value="serif">宋体 / 衬线</option>
-                                <option value="mono">等宽</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">字号</label>
-                            <input type="number" class="form-control" v-model.number="fontSize" min="8" max="512">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">对齐</label>
-                            <select class="form-control" v-model="align">
-                                <option value="center">居中</option>
-                                <option value="left">左对齐</option>
-                                <option value="right">右对齐</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="form-group">
-                            <label class="form-label">行高</label>
-                            <input type="number" class="form-control" v-model.number="lineHeight" step="0.05" min="0.6" max="3">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">字距</label>
-                            <input type="number" class="form-control" v-model.number="letterSpacing" step="1" min="-5" max="20">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">文字颜色</label>
-                            <input type="color" class="form-control" v-model="textColor" style="height:44px;padding:4px">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">锐化阈值 {{ textThreshold }}</label>
-                            <input type="range" v-model.number="textThreshold" min="1" max="254" style="width:100%">
-                        </div>
-                    </div>
-                    <div class="chip-row" style="margin-top:4px">
-                        <label class="switch"><input type="checkbox" v-model="bold"> 加粗</label>
-                        <label class="switch"><input type="checkbox" v-model="italic"> 斜体</label>
-                        <label class="switch"><input type="checkbox" v-model="textTransparent"> 背景透明（空气）</label>
-                    </div>
-                </div>
-
-                <!-- 尺寸与摆放 -->
-                <div class="config-section">
-                    <h4><i class="fas fa-ruler-combined"></i> 尺寸与摆放</h4>
-                    <div class="row">
-                        <div class="form-group">
-                            <label class="form-label">{{ mode === 'text' ? '画布宽（方块）' : '宽度（方块）' }}</label>
-                            <input id="width-input" type="number" class="form-control" v-model.number="width" min="1" max="512">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">{{ mode === 'text' ? '画布高（方块）' : '高度（方块）' }}</label>
-                            <input id="height-input" type="number" class="form-control" v-model.number="height" min="1" max="512">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">摆放</label>
-                            <select class="form-control" v-model="plane">
-                                <option value="xz">平铺（地面，1 层厚）</option>
-                                <option value="xy">竖立（贴墙，1 层厚）</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">旋转</label>
-                            <select class="form-control" v-model.number="rotate">
-                                <option :value="0">0°</option>
-                                <option :value="90">顺时针 90°</option>
-                                <option :value="180">180°</option>
-                                <option :value="270">顺时针 270°</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="chip-row">
-                        <label class="switch" v-if="mode === 'image'"><input type="checkbox" v-model="lockAspect"> 锁定原图比例</label>
-                        <label class="switch"><input type="checkbox" v-model="mirrorX"> 水平镜像</label>
-                        <label class="switch"><input type="checkbox" v-model="mirrorY"> 垂直镜像</label>
-                    </div>
-                    <div class="hint">平铺适合地图画与地板装饰；竖立适合墙面 LOGO，导出的 Y 轴向上，不会上下颠倒。</div>
-                </div>
-
-                <!-- 方块 -->
-                <div class="config-section">
-                    <h4><i class="fas fa-cube"></i> 方块类型</h4>
-                    <div class="chip-row" style="margin-bottom:10px">
-                        <button class="btn btn-outline btn-sm" @click="selectCommon">常用四种</button>
-                        <button class="btn btn-outline btn-sm" @click="selectAll">全选</button>
-                        <button class="btn btn-outline btn-sm" @click="clearAll">清空</button>
-                        <span class="badge" style="align-self:center">已选 {{ selectedBlocks.length }}</span>
-                    </div>
-                    <div class="block-selection">
-                        <div v-for="block in displayBlocks" :key="block.id"
-                             :class="['block-item', { selected: selectedBlocks.includes(block.id) }]"
-                             @click="toggleBlock(block.id)">
-                            {{ block.name }}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 画质 -->
-                <div class="config-section">
-                    <h4><i class="fas fa-sliders"></i> 转换选项</h4>
-                    <div class="row">
-                        <div class="form-group">
-                            <label class="form-label">颜色匹配</label>
-                            <select class="form-control" v-model="metric">
-                                <option value="lab">CIE Lab（推荐，渐变更自然）</option>
-                                <option value="rgb">RGB 加权（速度更快）</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">抖动</label>
-                            <select class="form-control" v-model="dither">
-                                <option value="none">关闭（色块干净）</option>
-                                <option value="floyd">Floyd–Steinberg（照片细节更多）</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">透明阈值 {{ alphaThreshold }}</label>
-                            <input type="range" v-model.number="alphaThreshold" min="1" max="254" style="width:100%">
-                        </div>
-                    </div>
-                    <div class="chip-row">
-                        <label class="switch" v-if="dither === 'floyd'"><input type="checkbox" v-model="serpentine"> 蛇形扫描（减少条纹）</label>
-                        <label class="switch" v-if="mode === 'image'"><input type="checkbox" v-model="smoothScale"> 缩放时平滑（照片建议开，像素图建议关）</label>
-                    </div>
-                    <div class="hint">透明阈值：像素 alpha 低于该值时视为空气，用来保留 PNG 的镂空区域。</div>
-                </div>
-
-                <!-- 输出 -->
-                <div class="config-section">
-                    <h4><i class="fas fa-file-export"></i> 输出格式</h4>
-                    <div class="form-group">
-                        <select id="format-select" class="form-control" v-model="format">
-                            <option value="schem">.schem — Sponge 结构（WorldEdit / 投影台）</option>
-                            <option value="litematic">.litematic — Litematica 投影（推荐）</option>
-                            <option value="mcstructure">.mcstructure — 基岩版结构方块</option>
-                            <option value="mcfunction">.mcfunction — 命令函数（免模组）</option>
-                            <option value="json">.json — RunAway 交换格式</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div class="btn-group">
-                <button id="convert-btn" class="btn" :disabled="isConverting || !canConvert" @click="startConversion">
-                    <i class="fas fa-cogs"></i> {{ isConverting ? '转换中...' : '开始转换' }}
-                </button>
-                <button id="download-file" class="btn btn-outline" :disabled="!downloadFilename" @click="downloadFile">
-                    <i class="fas fa-download"></i> 下载文件
-                </button>
-            </div>
-
-            <div v-if="showPreview" class="preview-section">
-                <div class="card-header"><i class="fas fa-eye"></i> 预览</div>
-                <div class="preview-grid">
-                    <div class="preview-item" v-if="mode === 'image' && originalPreview">
-                        <h4 style="margin-bottom:10px;color:#555">原图</h4>
-                        <img :src="originalPreview" class="preview-image" alt="原图预览">
-                    </div>
-                    <div class="preview-item" id="preview-item" v-if="resultPreview">
-                        <h4 style="margin-bottom:10px;color:#555">效果图（1 格 = 1 方块）</h4>
-                        <img :src="resultPreview" class="preview-image" alt="像素画预览">
-                    </div>
-                </div>
-            </div>
-
-            <div v-if="showProgress" class="progress-section">
-                <div class="card-header"><i class="fas fa-sync-alt"></i> 转换进度</div>
-                <div class="progress">
-                    <div :class="progressBarClass" :style="{ width: progress + '%' }">{{ progress }}%</div>
-                </div>
-                <div class="progress-info"><p>{{ progressMessage }}</p></div>
-                <div class="logs">
-                    <div v-for="(log, idx) in logs" :key="idx" :class="logClass(log)">{{ log }}</div>
-                </div>
-            </div>
-
-            <div v-if="showResult" id="result-card" class="card">
-                <div class="card-header"><i class="fas fa-chart-bar"></i> 转换结果</div>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value">{{ stats.width }} × {{ stats.height }}</div>
-                        <div class="stat-label">平面尺寸（方块）</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">{{ stats.totalBlocks }}</div>
-                        <div class="stat-label">实心方块数</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">{{ stats.blockTypes }}</div>
-                        <div class="stat-label">方块种类</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">{{ stats.elapsed }}s</div>
-                        <div class="stat-label">转换耗时</div>
-                    </div>
-                    <div class="stat-card" v-if="stats.commands">
-                        <div class="stat-value">{{ stats.commands }}</div>
-                        <div class="stat-label">命令条数</div>
-                    </div>
-                </div>
-
-                <div style="margin-top:20px" v-if="materials.length">
-                    <h4 style="color:var(--primary-color);margin-bottom:10px">材料清单</h4>
-                    <div v-for="item in materials" :key="item.block" class="counter-item">
-                        <span>{{ item.block }}</span>
-                        <span><span class="badge">{{ item.count }}</span></span>
-                    </div>
-                </div>
-
-                <div class="btn-group" style="justify-content:flex-start;margin-bottom:0">
-                    <button id="download-blueprint" class="btn btn-outline btn-sm" @click="downloadExtra('blueprint')">
-                        <i class="fas fa-list-ol"></i> 手动搭建图纸 (.md)
-                    </button>
-                    <button id="download-csv" class="btn btn-outline btn-sm" @click="downloadExtra('csv')">
-                        <i class="fas fa-table"></i> 材料清单 (.csv)
-                    </button>
-                </div>
-                <div class="hint">不想装投影模组时，用「手动搭建图纸」按行摆放，图纸里带图例和材料统计。</div>
-            </div>
+    <main class="wrap">
+        <div class="tabs">
+            <button id="mode-image" :class="{ on: mode === 'image' }" @click="mode = 'image'">图片</button>
+            <button id="mode-text" :class="{ on: mode === 'text' }" @click="mode = 'text'">文字</button>
         </div>
 
-        <div :class="['modal', { active: showChangelog }]" @click.self="showChangelog = false">
-            <div class="modal-content">
-                <span class="modal-close" @click="showChangelog = false">&times;</span>
-                <div class="modal-title">更新记录</div>
-                <div v-if="changelogs.length === 0" style="text-align:center;padding:40px;color:#666;">
-                    <i class="fas fa-spinner fa-spin" style="font-size:32px;color:var(--primary-color);"></i>
-                    <p>加载更新记录中...</p>
+        <section class="panel">
+            <!-- 图片输入 -->
+            <template v-if="mode === 'image'">
+                <div class="drop" @click="triggerFileInput" @dragover.prevent @drop.prevent="handleDrop">
+                    <input id="file-input" ref="fileInput" type="file" accept="image/*" hidden @change="handleFileUpload">
+                    <span class="drop-main">点击选择图片，或拖拽到这里</span>
+                    <span class="drop-sub">PNG / JPG / WEBP</span>
                 </div>
-                <div v-else>
-                    <div v-for="log in changelogs" :key="log.date" class="changelog-item">
-                        <div class="changelog-date">{{ log.date }}</div>
-                        <div class="changelog-content" v-html="formatChangelog(log.content)"></div>
+                <div class="inline" style="margin-top:10px">
+                    <input class="input" v-model="imageUrl" placeholder="或粘贴图片链接" @keyup.enter="loadImageFromUrl">
+                    <button class="btn btn-ghost" @click="loadImageFromUrl">载入</button>
+                </div>
+                <p class="hint" v-if="uploadedFileName">当前图片：{{ uploadedFileName }}</p>
+            </template>
+
+            <!-- 文字输入 -->
+            <template v-else>
+                <textarea id="text-input" class="input textarea" v-model="text" placeholder="输入要转成像素画的文字，支持多行"></textarea>
+                <div class="grid g4" style="margin-top:12px">
+                    <label class="field">
+                        <span>字体</span>
+                        <select class="input" v-model="fontFamily">
+                            <option value="system">系统无衬线</option>
+                            <option value="heiti">黑体</option>
+                            <option value="serif">宋体 / 衬线</option>
+                            <option value="mono">等宽</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>字号</span>
+                        <input type="number" class="input" v-model.number="fontSize" min="8" max="512">
+                    </label>
+                    <label class="field">
+                        <span>对齐</span>
+                        <select class="input" v-model="align">
+                            <option value="center">居中</option>
+                            <option value="left">左对齐</option>
+                            <option value="right">右对齐</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>行高</span>
+                        <input type="number" class="input" v-model.number="lineHeight" step="0.05" min="0.6" max="3">
+                    </label>
+                </div>
+                <div class="grid g4">
+                    <label class="field">
+                        <span>字距</span>
+                        <input type="number" class="input" v-model.number="letterSpacing" step="1" min="-20" max="40">
+                    </label>
+                    <label class="field">
+                        <span>文字颜色</span>
+                        <input type="color" class="input" v-model="textColor" style="padding:3px">
+                    </label>
+                    <label class="field">
+                        <span>锐化阈值 {{ textThreshold }}</span>
+                        <input type="range" v-model.number="textThreshold" min="1" max="254">
+                    </label>
+                    <div class="checks" style="align-items:flex-end;padding-bottom:7px">
+                        <label><input type="checkbox" v-model="bold"> 加粗</label>
+                        <label><input type="checkbox" v-model="italic"> 斜体</label>
                     </div>
+                </div>
+                <div class="checks">
+                    <label><input type="checkbox" v-model="textTransparent"> 背景透明（空气）</label>
+                </div>
+            </template>
+
+            <hr class="hr">
+
+            <div class="grid g4">
+                <label class="field">
+                    <span>{{ mode === 'text' ? '画布宽（方块）' : '宽度（方块）' }}</span>
+                    <input id="width-input" type="number" class="input" v-model.number="width" min="1" max="512">
+                </label>
+                <label class="field">
+                    <span>{{ mode === 'text' ? '画布高（方块）' : '高度（方块）' }}</span>
+                    <input id="height-input" type="number" class="input" v-model.number="height" min="1" max="512">
+                </label>
+                <label class="field">
+                    <span>摆放</span>
+                    <select id="plane-select" class="input" v-model="plane">
+                        <option value="xz">平铺（地面）</option>
+                        <option value="xy">竖立（墙面）</option>
+                    </select>
+                </label>
+                <label class="field">
+                    <span>旋转</span>
+                    <select id="rotate-select" class="input" v-model.number="rotate">
+                        <option :value="0">0°</option>
+                        <option :value="90">顺时针 90°</option>
+                        <option :value="180">180°</option>
+                        <option :value="270">顺时针 270°</option>
+                    </select>
+                </label>
+            </div>
+            <div class="checks">
+                <label v-if="mode === 'image'"><input type="checkbox" v-model="lockAspect"> 锁定原图比例</label>
+                <label><input type="checkbox" v-model="mirrorX"> 水平镜像</label>
+                <label><input type="checkbox" v-model="mirrorY"> 垂直镜像</label>
+            </div>
+
+            <details>
+                <summary>方块与画质</summary>
+
+                <div class="blocks">
+                    <button class="block-item" @click="selectCommon">常用</button>
+                    <button class="block-item" @click="selectAll">全选</button>
+                    <button class="block-item" @click="clearAll">清空</button>
+                </div>
+                <div class="blocks" style="margin-top:8px">
+                    <button v-for="block in displayBlocks" :key="block.id"
+                            :class="['block-item', { selected: selectedBlocks.includes(block.id) }]"
+                            @click="toggleBlock(block.id)">{{ block.name }}</button>
+                </div>
+
+                <div class="grid g3">
+                    <label class="field">
+                        <span>颜色匹配</span>
+                        <select class="input" v-model="metric">
+                            <option value="lab">CIE Lab（更准）</option>
+                            <option value="rgb">RGB 加权（更快）</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>抖动</span>
+                        <select class="input" v-model="dither">
+                            <option value="none">关闭</option>
+                            <option value="floyd">Floyd–Steinberg</option>
+                        </select>
+                    </label>
+                    <label class="field" v-if="mode === 'image'">
+                        <span>透明阈值 {{ alphaThreshold }}</span>
+                        <input type="range" v-model.number="alphaThreshold" min="1" max="254">
+                    </label>
+                </div>
+                <div class="checks">
+                    <label v-if="dither === 'floyd'"><input type="checkbox" v-model="serpentine"> 蛇形扫描</label>
+                    <label v-if="mode === 'image'"><input type="checkbox" v-model="smoothScale"> 缩放时平滑</label>
+                </div>
+                <p class="hint">透明阈值：alpha 低于该值的像素视为空气，用来保留 PNG 的镂空区域。</p>
+            </details>
+        </section>
+
+        <section class="panel">
+            <div class="actions">
+                <select id="format-select" class="input" v-model="format">
+                    <option value="schem">.schem — Sponge 结构（WorldEdit / 投影台）</option>
+                    <option value="litematic">.litematic — Litematica 投影</option>
+                    <option value="mcstructure">.mcstructure — 基岩版结构</option>
+                    <option value="mcfunction">.mcfunction — 命令函数</option>
+                    <option value="json">.json — RunAway 交换格式</option>
+                </select>
+                <button id="convert-btn" class="btn" :disabled="isConverting || !canConvert" @click="startConversion">
+                    {{ isConverting ? '转换中…' : '开始转换' }}
+                </button>
+                <button id="download-file" class="btn btn-ghost" :disabled="!downloadFilename" @click="downloadFile">下载</button>
+            </div>
+            <p class="status" v-if="isConverting">{{ progressMessage }} {{ progress }}%</p>
+            <p class="status error" v-if="errorMessage">{{ errorMessage }}</p>
+        </section>
+
+        <div class="preview" :class="{ single: !(mode === 'image' && originalPreview) }" v-if="showPreview">
+            <figure v-if="mode === 'image' && originalPreview">
+                <div class="checker"><img ref="originalImg" :src="originalPreview" alt="原图预览"></div>
+                <figcaption><span>原图</span><span>{{ imageSize }}</span></figcaption>
+            </figure>
+            <figure id="preview-item" v-show="hasPreview">
+                <div class="checker"><canvas ref="previewCanvas" width="1" height="1"></canvas></div>
+                <figcaption><span>效果图</span><span>{{ previewSize }}</span></figcaption>
+            </figure>
+        </div>
+
+        <section class="panel" id="result-card" v-if="showResult">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value">{{ stats.width }} × {{ stats.height }}</div>
+                    <div class="stat-label">平面尺寸（方块）</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ stats.totalBlocks }}</div>
+                    <div class="stat-label">实心方块</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ stats.blockTypes }}</div>
+                    <div class="stat-label">方块种类</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ stats.elapsed }}</div>
+                    <div class="stat-label">转换耗时</div>
+                </div>
+            </div>
+
+            <template v-if="materials.length">
+                <h3>材料清单</h3>
+                <div class="materials">
+                    <div v-for="item in materials" :key="item.block" class="counter-item">
+                        <span>{{ item.block }}</span>
+                        <span>{{ item.count }}</span>
+                    </div>
+                </div>
+            </template>
+
+            <div class="actions" style="margin-top:16px">
+                <button id="download-blueprint" class="btn btn-ghost btn-sm" @click="downloadExtra('blueprint')">搭建图纸 .md</button>
+                <button id="download-csv" class="btn btn-ghost btn-sm" @click="downloadExtra('csv')">材料清单 .csv</button>
+            </div>
+            <p class="hint">不想装投影模组时，可按搭建图纸逐行摆放，图纸里带图例和材料统计。</p>
+        </section>
+
+        <p class="footer">SunPixel · 由 SunEcology 维护 · <a href="https://github.com/suibian-sun/SunPixel" target="_blank" rel="noopener">源码</a></p>
+    </main>
+
+    <div class="modal" v-if="showChangelog" @click.self="showChangelog = false">
+        <div class="modal-content">
+            <button class="modal-close" @click="showChangelog = false" aria-label="关闭">×</button>
+            <div class="modal-title">更新记录</div>
+            <p v-if="changelogs.length === 0" class="hint">加载中…</p>
+            <div v-else>
+                <div v-for="log in changelogs" :key="log.date" class="changelog-item">
+                    <div class="changelog-date">{{ log.date }}</div>
+                    <div class="changelog-content" v-html="formatChangelog(log.content)"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script type="module" src="./js/ui/app.js"></script>
+    <div v-if="toast" :class="['toast', toast.type]">{{ toast.message }}</div>
+</div>
+
+<script type="module" src="./js/ui/app.js"></script>
 </body>
 </html>

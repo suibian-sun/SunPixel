@@ -61,16 +61,19 @@ function renderTextToImageData(text, options = {}) {
     return { width: metrics.width + spacing, ascent: metrics.actualBoundingBoxAscent, descent: metrics.actualBoundingBoxDescent };
   };
 
-  // 自动缩放：让最长的一行刚好放进画布
+  // 自动缩放：最长的一行放得进宽度，所有行叠起来放得进高度
   if (autoFit) {
     applyFont(fontSize);
     let widest = 0;
     for (const line of lines) widest = Math.max(widest, measure(line).width);
+
     const lineCount = Math.max(1, lines.length);
-    const heightLimit = (usableHeight - (lineCount - 1) * 0) / (lineCount * lineHeight);
     const scaleW = widest > 0 ? usableWidth / widest : 1;
-    const scaleH = heightLimit / fontSize;
-    fontSize = Math.max(1, Math.floor(fontSize * Math.min(1, scaleW, scaleH)));
+    // 多行总高 = 行数 × 字号 × 行高，据此反推还能放多大
+    const scaleH = usableHeight / (lineCount * fontSize * lineHeight);
+    const scale = Math.min(1, scaleW, scaleH);
+
+    fontSize = Math.max(1, Math.floor(fontSize * scale));
     applyFont(fontSize);
   }
 
@@ -90,10 +93,13 @@ function renderTextToImageData(text, options = {}) {
     else x = width / 2;
     ctx.textAlign = align === 'left' ? 'left' : align === 'right' ? 'right' : 'center';
 
-    if (letterSpacing > 0) {
+    if (letterSpacing !== 0) {
       // 手动逐字绘制以实现字距
       const widths = [...line].map((ch) => ctx.measureText(ch).width);
-      const lineWidth = widths.reduce((a, b) => a + b, 0) + Math.max(0, line.length - 1) * letterSpacing;
+      const lineWidth = Math.max(
+        0,
+        widths.reduce((a, b) => a + b, 0) + Math.max(0, line.length - 1) * letterSpacing
+      );
       let cursor = ctx.textAlign === 'center' ? x - lineWidth / 2 : ctx.textAlign === 'right' ? x - lineWidth : x;
       ctx.textAlign = 'left';
       [...line].forEach((ch, i) => {

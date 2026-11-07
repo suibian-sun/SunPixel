@@ -11,13 +11,15 @@ from pathlib import Path
 import nbtlib
 
 
-def load(path: Path):
+def load(path: Path, byteorder: str = "big"):
+    """Java 版是 gzip + 大端；基岩版 .mcstructure 是裸 NBT + 小端。"""
     raw = path.read_bytes()
-    try:
-        raw = gzip.decompress(raw)
-    except OSError:
-        pass
-    return nbtlib.File.parse(io.BytesIO(raw))
+    if byteorder == "big":
+        try:
+            raw = gzip.decompress(raw)
+        except OSError:
+            pass
+    return nbtlib.File.parse(io.BytesIO(raw), byteorder=byteorder)
 
 
 def as_int_list(tag):
@@ -74,6 +76,7 @@ def check_schem(path: Path):
         "blocks": blocks,
         "blockEntities": len(root.get("BlockEntities", [])),
         "hasOffset": "Offset" in root,
+        "paletteMax": int(root.get("PaletteMax", -1)),
     }
 
 
@@ -99,7 +102,7 @@ def check_litematic(path: Path):
 
 
 def check_mcstructure(path: Path):
-    root = load(path)
+    root = load(path, byteorder="little")
     indices = [int(v) for v in root["structure"]["block_indices"][0]]
     second = [int(v) for v in root["structure"]["block_indices"][1]]
     palette = [str(entry["name"]) for entry in root["structure"]["palette"]["default"]["block_palette"]]

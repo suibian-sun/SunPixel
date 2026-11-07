@@ -39,11 +39,13 @@ function processPixels(imageData, blockTypes, options = {}) {
   const matcher = createMatcherFromTypes(blockTypes, options.metric || 'lab');
   const result = pixelate(imageData, matcher, options);
 
-  // 预览用的颜色（与 palette 索引对齐，空气为 null）
-  const colors = result.palette.map((name) => {
-    const entry = matcher.entries.find((e) => e.block === name);
-    return entry ? entry.rgb : null;
-  });
+  // 预览用的颜色（与 palette 索引对齐，空气为 null）。
+  // 用 Map 查表，别在调色板上做线性查找，否则大调色板会明显拖慢预览。
+  const byBlock = new Map();
+  for (const entry of matcher.entries) {
+    if (!byBlock.has(entry.block)) byBlock.set(entry.block, entry.rgb);
+  }
+  const colors = result.palette.map((name) => byBlock.get(name) || null);
 
   return {
     ...result,

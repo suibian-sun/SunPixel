@@ -62,6 +62,7 @@ test('导出文件能被独立的 nbtlib 正确解析', async (t) => {
     assert.equal(report.schem.palette[0], 'minecraft:air');
     assert.deepEqual(report.schem.blocks, Array.from(result.volume));
     assert.equal(report.schem.hasOffset, true);
+    assert.equal(report.schem.paletteMax, result.palette.length);
     assert.equal(report.schem.blockEntities, 0);
   });
 
@@ -80,8 +81,10 @@ test('导出文件能被独立的 nbtlib 正确解析', async (t) => {
   await t.test('mcstructure：基岩版索引顺序与双层结构', () => {
     assert.ok(!report.mcstructure.error, report.mcstructure.error);
     assert.deepEqual(report.mcstructure.size, [4, 1, 2]);
+    assert.equal(report.mcstructure.formatVersion, 1);
     assert.deepEqual(report.mcstructure.palette, result.palette);
-    const expected = Array.from(toBedrockOrder(result.volume, result.size));
+    // 基岩版索引顺序与内部 volume 一致（x 变化最快），不能对调 X/Z
+    const expected = Array.from(toBedrockOrder(result.volume));
     assert.deepEqual(report.mcstructure.indices, expected);
     assert.equal(report.mcstructure.secondLayer.length, expected.length);
     assert.ok(report.mcstructure.secondLayer.every((v) => v === -1));
