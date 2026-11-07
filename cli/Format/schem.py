@@ -202,7 +202,13 @@ class schemConverter:
                 
             try:
                 with open(block_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
+                    raw = f.read()
+                # 方块配置文件的第 1 行是 "#中文名" 注释，直接 json.load 会整体失败，
+                # 导致选择的方块类型被静默忽略，这里先去掉注释行再解析
+                data = json.loads('\n'.join(
+                    line for line in raw.splitlines()
+                    if not line.strip().startswith('#')
+                ))
                 
                 for color_key, block_info in data.items():
                     color_str = str(color_key).strip()

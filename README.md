@@ -1,44 +1,42 @@
 # SunPixel 项目文档
 
-> ## 🏁 最终版本公告
+> ## 🎨 V-2.1.0 像素画引擎重做
 >
-> **SunPixel 最终版本更新已于今日推送。**
+> **本次更新重做了 Web 版的整条像素画流程**：修掉了会让导出的投影"只剩一种方块"的缺陷，
+> 并新增文字像素画、Floyd–Steinberg 抖动、透明像素、平铺/竖立摆放与手动搭建图纸。
 >
-> 自2026年7月30日起，本项目将仅进行Bug修复，不再新增功能内容。
+> 详细说明见 [web/Changelog/2026-11-07.md](web/Changelog/2026-11-07.md)。
 >
-> 感谢大家一路以来的陪伴与支持。山高路远，我们有缘再会。
->
-> —— SunEcology · 2026年7月30日
+> —— SunEcology · 2026年11月7日
 
 ## 项目概述
 
 SunPixel 是一个将图片转换为 Minecraft 结构文件的多功能工具，支持多种输出格式和方块类型。项目包含三个主要实现版本：
 
+- **Web 版本（纯前端）**：零构建静态站，浏览器内完成全部转换，可部署到 Cloudflare Pages
 - **CLI 版本（Python）**：功能完整的命令行工具，支持交互式菜单和批量处理
-- **Web 版本（Python + Flask）**：基于 Web 的图形界面，支持在线使用和作品分享
 - **Go 版本**：高性能的 Go 语言重写版，提供跨平台二进制文件支持
 
 ### 核心功能
 
 - **图片转 Minecraft 结构**：将任意图片转换为 Minecraft 可用的结构文件
+- **文字像素画**：输入文字直接生成像素画，支持多行、字体、字号、行高、字距、对齐与描边锐化
 - **多种输出格式**：
-  - `.schem` - Sponge Schematic 格式（原版结构方块）
-  - `.litematic` - Litematica 模组格式
-  - `.json` - RunAway 格式
-  - `.bdx` - BDX 格式
-  - `.mcfunction` - 命令函数格式
-  - `.mcstructure` - 基岩版结构格式
-  - `.mcworld` - 基岩版世界格式
-- **丰富方块类型**：支持 15+ 种方块类型，包括羊毛、混凝土、陶瓦、玻璃、地毯、木材等
-- **增强功能**：
-  - 2D 像素画制作
-  - 3D 雕塑制作
-  - 红石音乐制作
-  - 强化地图画（支持 177 种地图色）
-  - Floyd-Steinberg 抖动算法
-  - 图片旋转、镜像功能
-- **多语言支持**：中文、英文、法文、俄文
-- **用户系统**：支持作品分享、历史记录、点赞点踩等功能
+  - `.schem` - Sponge Schematic v2（VarInt 编码，WorldEdit / 投影台可直接读取）
+  - `.litematic` - Litematica 模组投影（位打包 BlockStates）
+  - `.mcstructure` - 基岩版结构文件
+  - `.mcfunction` - 命令函数（连续方块自动合并为 fill）
+  - `.json` - RunAway 交换格式
+  - `.md` / `.csv` - 手动搭建图纸与材料清单
+- **丰富方块类型**：15 种方块类目、200+ 种方块可选
+- **画质选项**：
+  - CIE Lab / RGB 加权两种颜色距离
+  - Floyd–Steinberg 抖动（可选蛇形扫描）
+  - 透明像素识别（阈值可调，镂空处输出空气）
+  - 平铺（地面）/ 竖立（贴墙）、旋转 90°/180°/270°、水平 / 垂直镜像
+  - 锁定原图比例、缩放平滑开关
+- **多语言支持**：中文、英文、法文、俄文（CLI 与 Go 版本）
+
 
 ## 项目结构
 
@@ -46,62 +44,51 @@ SunPixel 是一个将图片转换为 Minecraft 结构文件的多功能工具，
 SunPixel/
 ├── cli/                    # Python CLI 版本
 │   ├── SunPixel.py         # 主程序入口
-│   ├── format/             # 格式转换器
+│   ├── Format/             # 格式转换器（CLI 运行时实际加载的目录）
 │   │   ├── schem.py        # Schem 格式转换
-│   │   ├── litematica.py   # Litematica 格式转换
+│   │   ├── litematic.py    # Litematica 格式转换
 │   │   ├── runaway.py      # RunAway 格式转换
 │   │   └── ...
+│   ├── format/             # Web/Go 共用资源（含 bdx_runtimeIds 等数据）
 │   ├── block/              # 方块颜色映射配置
 │   │   ├── wool.json       # 羊毛方块
 │   │   ├── concrete.json   # 混凝土方块
-│   │   ├── terracotta.json # 陶瓦方块
 │   │   └── ...
 │   ├── message/            # 国际化消息
-│   ├── output/             # 输出文件目录
 │   └── config.json         # 配置文件
 │
-├── web/                    # Web 版本
-│   ├── SunPixelWeb.py      # Web 服务器入口
-│   ├── assets/             # 静态资源
-│   │   ├── data/           # 数据文件（版本、方块映射等）
-│   │   ├── img/            # 图片资源
-│   │   └── svg/            # SVG 图标
-│   ├── templates/          # HTML 模板
-│   ├── Format/             # 格式转换器（同 CLI）
-│   ├── block/              # 方块配置（同 CLI）
-│   ├── message/            # 国际化消息
-│   ├── output/             # 输出文件目录
-│   └── temp_downloads/     # 临时下载文件
+├── web/                    # Web 版本（纯前端静态站）
+│   ├── index.html          # 页面结构与样式
+│   ├── js/
+│   │   ├── ui/app.js       # Vue 应用
+│   │   ├── converter.js    # 图片 → 像素画
+│   │   ├── formatter.js    # 输出格式分发
+│   │   ├── nbt-writer.js   # NBT 二进制编码
+│   │   ├── core/
+│   │   │   ├── color.js    # CIE Lab 颜色匹配
+│   │   │   ├── pixelate.js # 抖动、几何变换、体素化
+│   │   │   └── text-art.js # 文字渲染
+│   │   └── format/         # schem / litematic / mcstructure / mcfunction / runaway / blueprint
+│   ├── functions/api/      # Cloudflare Pages Functions（方块列表、更新记录）
+│   ├── dev-server.mjs      # 本地开发服务器（同时托管静态文件与接口）
+│   ├── tests/              # 单元测试、格式校验、浏览器端到端测试
+│   └── assets/             # 静态资源与版本数据
 │
 ├── go/                     # Go 版本
-│   ├── cmd/
-│   │   └── main.go         # 主程序入口
+│   ├── cmd/main.go         # 主程序入口
 │   ├── format/             # 格式转换器
-│   │   ├── schem.go        # Schem 格式转换
-│   │   ├── manager.go      # 转换器管理器
-│   │   └── validator.go    # 格式验证器
 │   ├── config/             # 配置管理
-│   │   └── config.go       # 配置加载器
-│   ├── src/
-│   │   ├── converter.go    # 核心转换逻辑
-│   │   └── nbt/            # NBT 格式处理
+│   ├── src/                # 核心转换逻辑与 NBT 处理
 │   ├── interactive/        # 交互式界面
-│   ├── utils/              # 工具函数
 │   ├── block/              # 方块配置（同 CLI）
-│   ├── message/            # 国际化消息
-│   ├── go.mod              # Go 模块定义
-│   └── go.sum              # Go 模块校验
+│   └── message/            # 国际化消息
 │
-├── .github/
-│   └── workflows/
-│       └── build.yml       # CI/CD 构建配置
-│
-└── AGENTS.md               # 本文档
+└── .github/workflows/       # CI/CD 构建配置（发布到 Release 仓库）
 ```
 
 ## 技术栈
 
-### Python 版本（CLI 和 Web）
+### Python 版本（CLI）
 - **核心库**：
   - `numpy` - 数值计算和图像处理
   - `pillow` - 图像处理
@@ -109,9 +96,15 @@ SunPixel/
   - `nbtlib` - NBT 格式解析
   - `psutil` - 系统资源监控
   - `requests` - HTTP 请求
-- **Web 特有**：
-  - `flask` - Web 框架
-  - 前端使用 Vue3
+
+### Web 版本
+- **运行环境**：现代浏览器，零构建、零运行时依赖
+- **核心**：
+  - `Vue 3`（CDN 全局构建） - 界面
+  - `Canvas 2D` - 缩放、取像素、文字渲染
+  - `CompressionStream` - gzip 压缩 NBT
+  - 自研 NBT 编码器 - 生成 `.schem` / `.litematic` / `.mcstructure`
+- **托管**：Cloudflare Pages（`functions/` 提供方块列表与更新记录接口）
 
 ### Go 版本
 - **Go 版本**：1.21+
@@ -133,18 +126,28 @@ pip install numpy pypng pillow nbtlib psutil requests
 python cli/SunPixel.py
 ```
 
-### Python Web 版本
+### Web 版本
+
+Web 版是零依赖静态站，转换全部在浏览器内完成。本地开发需要一个同时托管页面与 `/api/*` 的小服务：
 
 ```bash
-# 安装依赖
-pip install flask numpy pypng pillow nbtlib psutil requests
-
-# 运行服务器
-python web/SunPixelWeb.py
-
-# 在浏览器中访问
-http://127.0.0.1:5000
+cd web
+npm run dev          # http://127.0.0.1:8788
 ```
+
+不做任何事也可以直接部署：`wrangler pages deploy` 或把 `web/` 目录丢给任意静态托管（此时 `/api/blocks` 不可用，页面会自动回退到内置方块表）。
+
+### 测试（Web 版本）
+
+```bash
+cd web
+npm test             # 单元测试 + 导出文件用 nbtlib 独立校验
+npm run test:e2e     # 真浏览器跑完整流程（需 playwright）
+```
+
+- `tests/unit.test.mjs`：颜色匹配、抖动、透明、旋转镜像、摆放方向
+- `tests/formats.test.mjs`：把 `.schem` / `.litematic` / `.mcstructure` 等真实导出到临时目录，再用 Python 的 `nbtlib`（独立实现）解析回来逐体素比对
+- `tests/e2e.mjs`：启动本地服务 → 打开页面 → 文字模式与图片模式各转一次 → 下载文件 → 校验
 
 ### Go 版本
 
@@ -216,8 +219,10 @@ go build -o sunpixel ./cmd/main
 
 - 添加新功能时需要添加相应的测试用例
 - 测试文件与源文件放在同一目录，命名为 `*_test.go`（Go）或 `test_*.py`（Python）
+- Web 版本的测试放在 `web/tests/`，统一用 `*.test.mjs`
 - 运行测试：
-  - Python: `python -m pytest`
+  - Web: `cd web && npm test`（导出文件会用 `nbtlib` 独立复核）
+  - Web 端到端: `cd web && npm run test:e2e`
   - Go: `go test ./...`
 
 ## 常见任务

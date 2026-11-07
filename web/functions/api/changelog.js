@@ -1,6 +1,61 @@
 // Cloudflare Pages Function - 获取更新记录
 const changelogData = [
   {
+    date: '2026-11-07',
+    content: `# SunPixel 像素画引擎重做
+
+> 本次更新把三个版本共用的像素画流程重做了一遍：修掉了会让导出的投影"只剩一种方块"的严重缺陷，
+> 并借鉴 TgkRuobin 的 [vue3-mcpixelart](https://github.com/TgkRuobin/vue3-mcpixelart) 与
+> [minecraft-block-letter](https://github.com/TgkRuobin/minecraft-block-letter) 两个项目的思路，
+> 补上了文字像素画、抖动、透明与手动搭建图纸。
+>
+> —— SunEcology · 2026年11月7日
+
+---
+
+## 版本号：V-2.1.0
+
+### ✨ 新增功能
+
+- [+] **文字像素画模式**：输入文字直接生成像素画，支持多行、字体、字号、字重、斜体、行高、字距、对齐、颜色与锐化阈值（思路来自 minecraft-block-letter 的字符投影）
+- [+] **Floyd–Steinberg 抖动**：可选蛇形扫描，照片压缩到十几种方块后仍能保留明暗细节（思路来自 vue3-mcpixelart，改为与最终颜色匹配共用同一套调色板，避免抖动后又被二次改写）
+- [+] **透明像素识别**：PNG 镂空区域自动变成空气，阈值可调；地图画、LOGO 不再被填成黑色
+- [+] **摆放方向与几何变换**：平铺（地面）/ 竖立（贴墙）、顺时针旋转 90°/180°/270°、水平 / 垂直镜像，竖立时 Y 轴向上不会上下颠倒
+- [+] **手动搭建图纸（.md）**：按行输出方块图例与逐行图纸，适合基岩版、网易版、或不装投影模组的玩家（参考 vue3-mcpixelart 的手动搭建）
+- [+] **材料清单（.csv）**：\`x,y,z,方块\` 逐方块导出，丢进表格即可统计备料
+- [+] **图片 URL 直接载入**：粘贴网络图片地址即可转换
+- [+] **本地开发服务器**：\`web/dev-server.mjs\` 复刻 Cloudflare Pages Functions，\`npm run dev\` 一键起页面与接口；新增 \`npm test\`、\`npm run test:e2e\`
+
+### 🔧 问题修复
+
+- [~] **.litematic 导出完全失效**：旧实现缺少 \`TAG_Long_Array\` 写入分支，\`BlockStates\` 从未真正写进文件，投影打开后所有方块塌成同一种；同时把字段名 \`BlockPalette\` 更正为 \`BlockStatePalette\`，补齐 \`Metadata\`（EnclosingSize / RegionCount / TotalBlocks / TotalVolume）
+- [~] **.mcstructure 导出直接报错**：\`block_indices\` 被写成非法 NBT（\`List<IntArray>\` 用了 \`IntArray\` 标签包裹），\`size\` 也不是 \`List<Int>\`；现按基岩版规范以 \`x → y → z\` 顺序重排
+- [~] **.schem 大数据量下索引错位**：\`BlockData\` 按 Sponge v2 规范改为 VarInt 编码，调色板超过 127 种方块时不再写坏
+- [~] **.mcfunction 命令爆炸**：连续同种方块合并为 \`fill\`，命令数量通常降到原来的 1/5 以内，空气不再生成命令
+- [~] **羊毛调色板把黑色映射成白色**：\`(20,21,25)\` 之前指向 \`white_wool\`，黑色区域会整片变白
+- [~] **颜色匹配改用 CIE Lab**：替代原 Redmean 近似，渐变、肤色、阴影过渡更接近原图；同时加 5 位量化缓存，512×512 全色板转换约 60ms（抖动约 450ms）
+- [~] **CLI 选择方块类型后毫无效果**：\`Format/schem.py\` 直接 \`json.load\` 带首行注释的 \`block/*.json\`，全部抛异常被吞掉，最终回落到默认黑白；现先剥离注释行再解析
+- [~] **CLI 方块名显示为文件名**：\`get_block_display_name\` 只认 \`# 羊毛\` 这种带空格的写法，实际文件是 \`#羊毛\`
+- [~] **Web 页面几处交互失效**：上传图片后「开始转换」仍保持禁用、锁定比例读取不到图片宽高比
+- [~] **预览图配色误差**：效果图改为按实际使用到的调色板着色，不再按"第一个同名颜色"猜
+
+### 🗑 移除
+
+- [-] **Web 版不再提供 .bdx / .mcworld**：两种格式分别依赖 brotli 压缩与完整的世界数据库，浏览器端做不出合规文件，此前导出的是纯文本占位、任何工具都读不了；CLI 与 Go 版本保留这两种格式
+- [-] **删除 \`web/functions/lib/\`**：与 \`web/js/\` 重复且已经漂移的旧副本，长期无人引用
+- [-] **清理仓库中的 \`__pycache__\` / \`.pyc\`**：补充 \`.gitignore\`
+
+### 🌐 版本信息
+
+- **Web 版本**：纯前端静态站（Cloudflare Pages），支持 \`.schem\` / \`.litematic\` / \`.mcstructure\` / \`.mcfunction\` / \`.json\`，外加手动搭建图纸与材料清单
+- **CLI 版本 (Python)**：修复方块配置加载，其余格式保持不变
+- **Go 版本**：未改动
+
+### 💌 致谢
+
+感谢 [TgkRuobin](https://github.com/TgkRuobin) 开源的 vue3-mcpixelart 与 minecraft-block-letter，本次的抖动算法、手动搭建与字符投影思路均来自这两个项目。`
+  },
+  {
     date: '2026-07-30',
     content: `# SunPixel 最终版本\n\n> SunPixel 最终版本更新已于今日推送。\n>\n> 自2026年7月30日起，至2026年2月5日期间，我们将仅进行Bug修复，不再新增功能内容。\n>\n> 感谢大家一路以来的陪伴与支持。\n>\n> 山高路远，我们有缘再会。\n>\n> —— SunEcology · 2026年7月30日\n\n---\n\n## 版本号：V-2.0.0-final\n\n### ✨ 新增功能\n- [+] **Go 版本新增 Litematic 格式支持**：和 Python 版本一样，现在 Go 版本也支持输出 .litematic 格式文件\n- [+] **Web 版本新增 URL 快速转换**：支持直接粘贴图片 URL 链接进行快速转换\n- [+] **Web 版本新增转换统计信息展示**：转换完成后显示结构尺寸、总方块数、方块类型数、转换耗时等统计信息\n- [+] **Web 版本新增最终版本主题**：采用紫色渐变主题，展示最终版本公告横幅\n\n### 🔧 改进\n- [~] **Web 版本重构为纯 Vue 3 前端**：去除商店、分享圈、朋友圈、用户登录等功能，精简核心体验\n- [~] **精简 Web 后端 API**：仅保留核心图片转换相关接口，提升性能和稳定性\n- [~] **Python CLI 版本**：删除时间炸弹检查机制，优化资源监控模块\n- [~] **Go 版本**：修复 package 冲突问题，确保构建正常\n- [~] **修复 GitHub Actions 工作流构建问题**：删除 SMTP 邮件通知代码，优化工作流配置\n- [~] **完善各版本目录结构**：修复缺失文件，确保版本一致性\n\n### 🌐 版本信息\n- **CLI 版本 (Python)**: 功能完整，支持 .schem / .json / .litematic / .bdx / .mcfunction / .mcstructure / .mcworld 等多种格式\n- **Web 版本**: 基于 Vue 3 的现代化 Web 界面，支持文件上传和客户端转换\n- **Go 版本**: 高性能 Go 语言实现，支持 .schem / .json / .litematic 格式\n\n### 💌 致谢\n感谢所有使用 SunPixel 的用户，是你们的支持让这个项目变得有意义。`
   },

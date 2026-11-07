@@ -3,7 +3,7 @@ const BLOCK_DATA = {
   wool: {
     name: "羊毛",
     colors: {
-      "(20,21,25)": ["minecraft:white_wool", 0],
+      "(20,21,25)": ["minecraft:black_wool", 0],
       "(233,236,239)": ["minecraft:white_wool", 0],
       "(160,39,34)": ["minecraft:red_wool", 0],
       "(103,117,53)": ["minecraft:green_wool", 0],

@@ -660,8 +660,11 @@ def get_block_display_name(block_file):
     try:
         with open(block_file, 'r', encoding='utf-8') as f:
             first_line = f.readline().strip()
-            if first_line.startswith('# '):
-                return first_line[2:] 
+            # 兼容 "#羊毛" 与 "# 羊毛" 两种写法
+            if first_line.startswith('#'):
+                name = first_line.lstrip('#').strip()
+                if name:
+                    return name
     except:
         pass
     return block_file.stem 

@@ -1,10 +1,14 @@
 {
   "name": "sunpixel-web",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "SunPixel - 像素画转Minecraft结构 (Cloudflare Pages)",
+  "type": "module",
   "main": "index.html",
   "scripts": {
-    "build": "echo 'Static site - no build required'"
+    "build": "echo 'Static site - no build required'",
+    "dev": "node dev-server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:e2e": "node tests/e2e.mjs"
   },
   "dependencies": {
   }

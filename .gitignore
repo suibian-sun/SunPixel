@@ -1,0 +1,19 @@
+# 构建产物与缓存
+__pycache__/
+*.py[cod]
+*.pyc
+node_modules/
+package-lock.json
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 运行时输出（示例文件已被跟踪，不受影响）
+cli/output/
+go/output/
+web/output/
+web/temp_downloads/
+
+# 测试产物
+web/tests/tmp/

@@ -1,3 +1,27 @@
+2026-11-07 SunPixel 更新内容如下：
+
+[+] 新增文字像素画模式，输入文字直接生成像素画
+[+] 新增 Floyd–Steinberg 抖动与蛇形扫描
+[+] 新增透明像素识别，alpha 阈值可调，镂空区域输出空气
+[+] 新增平铺/竖立摆放、旋转与镜像
+[+] 新增手动搭建图纸 (.md) 与材料清单 (.csv)
+[+] 新增图片 URL 直接载入
+[+] 新增本地开发服务器与自动化测试（npm run dev / npm test）
+[~] 修复 .litematic 的 BlockStates 从未写入，投影里所有方块塌成同一种
+[~] 修复 .mcstructure 的 block_indices 结构非法，导出直接报错
+[~] 修复 .schem 的 BlockData 未按 VarInt 编码，大调色板下索引错位
+[~] 优化 .mcfunction，连续方块合并为 fill，命令数量大幅下降
+[~] 修复羊毛调色板把黑色映射成白色羊毛
+[~] 颜色匹配改用 CIE Lab，并加入量化缓存
+[~] 修复 CLI 读取方块配置时被注释行卡住、所选方块被静默忽略
+[~] 修复 Web 端上传图片后按钮仍禁用、宽高比锁定失效
+[-] Web 版移除无法生成合规文件的 .bdx / .mcworld（CLI、Go 版本保留）
+[-] 清理重复的 functions/lib 与仓库中的 __pycache__
+[~] 版本号变更为：V-2.1.0
+
+感谢 TgkRuobin 开源的 vue3-mcpixelart 与 minecraft-block-letter。
+—— SunEcology · 2026年11月7日
+
 2026-07-30 SunPixel 最终版本更新内容如下：
 
 [!] SunPixel 最终版本更新已于今日推送

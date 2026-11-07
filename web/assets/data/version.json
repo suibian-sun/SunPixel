@@ -1,5 +1,16 @@
 [
   {
+    "version": "V-2.1.0",
+    "description": [
+      "像素画引擎重做：新增文字像素画、Floyd–Steinberg 抖动、透明像素、平铺/竖立与旋转镜像",
+      "修复 .litematic 导出方块塌成同一种、.mcstructure 导出报错、.schem 大调色板索引错位",
+      "新增手动搭建图纸 (.md) 与材料清单 (.csv)，不装投影模组也能照着搭",
+      "颜色匹配改用 CIE Lab，512×512 转换约 60ms",
+      "修复羊毛黑色映射成白色、上传图片后按钮仍禁用等问题"
+    ],
+    "date": "2026-11-07"
+  },
+  {
     "version": "V-2.0.0-final",
     "description": [
       "最终版本：SunPixel 项目正式完结",
