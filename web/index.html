@@ -210,7 +210,7 @@
     }
 
     /* ---------- 结果 ---------- */
-    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
     .stat-card { background: var(--bg); padding: 12px 14px; }
     .stat-card .stat-value { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
     .stat-card .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -385,7 +385,7 @@
                     <span>摆放</span>
                     <select id="plane-select" class="input" v-model="plane">
                         <option value="xz">平铺（地面）</option>
-                        <option value="xy">竖立（墙面）</option>
+                        <option value="xy" :disabled="mapArt">竖立（墙面）</option>
                     </select>
                 </label>
                 <label class="field">
@@ -402,6 +402,20 @@
                 <label v-if="mode === 'image'"><input type="checkbox" v-model="lockAspect"> 锁定原图比例</label>
                 <label><input type="checkbox" v-model="mirrorX"> 水平镜像</label>
                 <label><input type="checkbox" v-model="mirrorY"> 垂直镜像</label>
+                <label v-if="mode === 'image'"><input id="mapart-toggle" type="checkbox" v-model="mapArt"> 强化地图画</label>
+            </div>
+            <div class="grid g4" v-if="mode === 'image' && mapArt">
+                <label class="field">
+                    <span>地图画层数</span>
+                    <select id="map-layers" class="input" v-model.number="mapLayers">
+                        <option :value="4">4 层（省材料）</option>
+                        <option :value="8">8 层（推荐）</option>
+                        <option :value="16">16 层（细节多）</option>
+                    </select>
+                </label>
+                <p class="hint" style="grid-column: span 3; margin: 0; align-self: end">
+                    每列只放一格方块，用柱子高低差让地图多出两档明暗，16 色方块变 48 档。仅支持平铺，最大 384 × 256；固定使用支持地图色的方块，不受抖动与方块种类限制影响。
+                </p>
             </div>
 
             <details>
@@ -418,7 +432,7 @@
                             @click="toggleBlock(block.id)">{{ block.name }}</button>
                 </div>
 
-                <div class="grid g3">
+                <div class="grid g4">
                     <label class="field">
                         <span>颜色匹配</span>
                         <select class="input" v-model="metric">
@@ -437,12 +451,84 @@
                         <span>透明阈值 {{ alphaThreshold }}</span>
                         <input type="range" v-model.number="alphaThreshold" min="1" max="254">
                     </label>
+                    <label class="field">
+                        <span>最多方块种类</span>
+                        <select id="max-blocks" class="input" v-model.number="maxBlocks">
+                            <option :value="0">不限制（最准）</option>
+                            <option :value="8">8 种</option>
+                            <option :value="12">12 种</option>
+                            <option :value="16">16 种</option>
+                            <option :value="24">24 种</option>
+                        </select>
+                    </label>
                 </div>
                 <div class="checks">
                     <label v-if="dither === 'floyd'"><input type="checkbox" v-model="serpentine"> 蛇形扫描</label>
                     <label v-if="mode === 'image'"><input type="checkbox" v-model="smoothScale"> 缩放时平滑</label>
                 </div>
                 <p class="hint">透明阈值：alpha 低于该值的像素视为空气，用来保留 PNG 的镂空区域。</p>
+            </details>
+
+            <details v-if="mode === 'image'">
+                <summary>图片调节</summary>
+                <div class="grid g4">
+                    <label class="field">
+                        <span>亮度 {{ brightness }}</span>
+                        <input id="brightness" type="range" v-model.number="brightness" min="-100" max="100">
+                    </label>
+                    <label class="field">
+                        <span>对比度 {{ contrast }}</span>
+                        <input type="range" v-model.number="contrast" min="-100" max="100">
+                    </label>
+                    <label class="field">
+                        <span>饱和度 {{ saturation }}%</span>
+                        <input type="range" v-model.number="saturation" min="0" max="200">
+                    </label>
+                    <label class="field">
+                        <span>伽马 {{ gamma }}</span>
+                        <input type="range" v-model.number="gamma" min="0.2" max="2.5" step="0.1">
+                    </label>
+                </div>
+                <div class="checks">
+                    <label><input type="checkbox" v-model="grayscale"> 灰度（黑白）</label>
+                    <label><input type="checkbox" v-model="invert"> 反色</label>
+                </div>
+                <p class="hint">调节在配方块颜色之前生效，适合先把过暗、发灰的原图拉开层次。</p>
+            </details>
+
+            <details v-if="mode === 'text'">
+                <summary>字形微调</summary>
+                <div class="inline">
+                    <input id="font-input" ref="fontInput" type="file" accept=".ttf,.otf,.woff,.woff2" hidden @change="handleFontFile">
+                    <button class="btn btn-ghost btn-sm" @click="triggerFontInput">上传字体</button>
+                    <span class="hint" style="margin:0">{{ customFontLabel ? '当前字体：' + customFontLabel : '默认使用系统字体' }}</span>
+                    <button v-if="customFont" class="btn btn-ghost btn-sm" @click="resetFont">恢复默认</button>
+                </div>
+                <div class="grid g4">
+                    <label class="field">
+                        <span>横向缩放 {{ scaleX }}%</span>
+                        <input id="scale-x" type="range" v-model.number="scaleX" min="50" max="150">
+                    </label>
+                    <label class="field">
+                        <span>纵向缩放 {{ scaleY }}%</span>
+                        <input id="scale-y" type="range" v-model.number="scaleY" min="50" max="150">
+                    </label>
+                    <label class="field">
+                        <span>X 偏移 {{ offsetX }}</span>
+                        <input id="offset-x" type="range" v-model.number="offsetX" min="-32" max="32">
+                    </label>
+                    <label class="field">
+                        <span>Y 偏移 {{ offsetY }}</span>
+                        <input id="offset-y" type="range" v-model.number="offsetY" min="-32" max="32">
+                    </label>
+                </div>
+                <div class="grid g3">
+                    <label class="field">
+                        <span>加粗强度 {{ boldness }}px</span>
+                        <input id="boldness" type="range" v-model.number="boldness" min="0" max="8" step="0.5">
+                    </label>
+                </div>
+                <p class="hint">加粗强度是描边式加粗，对小字号比 font-weight 更可控。</p>
             </details>
         </section>
 
@@ -493,6 +579,10 @@
                     <div class="stat-value">{{ stats.elapsed }}</div>
                     <div class="stat-label">转换耗时</div>
                 </div>
+                <div class="stat-card" v-if="stats.layers > 1">
+                    <div class="stat-value">{{ stats.layers }}</div>
+                    <div class="stat-label">层数（高度）</div>
+                </div>
             </div>
 
             <template v-if="materials.length">
@@ -508,6 +598,9 @@
             <div class="actions" style="margin-top:16px">
                 <button id="download-blueprint" class="btn btn-ghost btn-sm" @click="downloadExtra('blueprint')">搭建图纸 .md</button>
                 <button id="download-csv" class="btn btn-ghost btn-sm" @click="downloadExtra('csv')">材料清单 .csv</button>
+                <button id="download-chars" v-if="mode === 'text'" class="btn btn-ghost btn-sm" :disabled="isExportingChars" @click="exportCharacters">
+                    {{ isExportingChars ? '导出中…' : '逐字导出 .zip' }}
+                </button>
             </div>
             <p class="hint">不想装投影模组时，可按搭建图纸逐行摆放，图纸里带图例和材料统计。</p>
         </section>

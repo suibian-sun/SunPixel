@@ -30,13 +30,18 @@ function pad(value, width) {
  * 面向不装投影模组、或使用基岩版/网易版的玩家：按行给出方块，逐行摆放即可。
  */
 function generateBlueprint(result, meta = {}) {
-  const { width, height, grid, palette, counts, plane } = result;
+  const { width, height, grid, palette, counts, plane, size, volume } = result;
+  const layers = size ? size.y : 1;
   const legend = buildLegend(palette);
   const lines = [];
 
   lines.push(`# ${meta.name || 'SunPixel 施工图纸'}`);
   lines.push('');
-  lines.push(`- 尺寸：**${width} × ${height}**${plane === 'xy' ? '（竖立，贴墙）' : '（平铺，地面）'}`);
+  lines.push(
+    layers > 1
+      ? `- 尺寸：**${size.x} × ${size.y} × ${size.z}**（宽 × 高 × 深，立体）`
+      : `- 尺寸：**${width} × ${height}**${plane === 'xy' ? '（竖立，贴墙）' : '（平铺，地面）'}`
+  );
   lines.push(`- 方块总数：**${result.totalBlocks}**（空气 ${result.airCount}）`);
   lines.push(`- 方块种类：**${counts.size}**`);
   if (counts.size > LEGEND_SYMBOLS.length) {
@@ -67,34 +72,59 @@ function generateBlueprint(result, meta = {}) {
   lines.push('');
   lines.push('## 逐行图纸');
   lines.push('');
-  lines.push('每行开头是第几行（从 0 开始），第一行在最上方。每 10 列标一次列号。');
-  lines.push('');
 
   const axisWidth = 4;
+  const columns = layers > 1 ? size.x : width;
   const rulerTens = [];
   const rulerOnes = [];
-  for (let x = 0; x < width; x++) {
+  for (let x = 0; x < columns; x++) {
     rulerTens.push(x % 10 === 0 ? String(Math.floor(x / 10) % 10) : ' ');
     rulerOnes.push(String(x % 10));
   }
-  lines.push('```text');
-  lines.push(' '.repeat(axisWidth) + rulerTens.join(''));
-  lines.push(' '.repeat(axisWidth) + rulerOnes.join(''));
 
-  for (let y = 0; y < height; y++) {
-    let row = '';
-    for (let x = 0; x < width; x++) {
-      const index = grid[y * width + x];
-      if (index === 0) {
-        row += '.';
-      } else {
-        row += legend.get(palette[index]) || '?';
+  if (layers > 1) {
+    // 立体结构（例如地图画）按层给图，每层都是一张俯视图
+    lines.push(`结构共 ${layers} 层，从 Y=0 逐层往上放。每张图的行是 Z、列是 X，每 10 列标一次列号。`);
+    lines.push('');
+    for (let y = 0; y < layers; y++) {
+      lines.push(`### Y = ${y}`);
+      lines.push('');
+      lines.push('```text');
+      lines.push(' '.repeat(axisWidth) + rulerTens.join(''));
+      lines.push(' '.repeat(axisWidth) + rulerOnes.join(''));
+      for (let z = 0; z < size.z; z++) {
+        let row = '';
+        for (let x = 0; x < size.x; x++) {
+          const index = volume[(y * size.z + z) * size.x + x];
+          row += index === 0 ? '.' : legend.get(palette[index]) || '?';
+        }
+        lines.push(`${pad(z, axisWidth - 1)} ${row}`);
       }
+      lines.push('```');
+      lines.push('');
     }
-    lines.push(`${pad(y, axisWidth - 1)} ${row}`);
+  } else {
+    lines.push('每行开头是第几行（从 0 开始），第一行在最上方。每 10 列标一次列号。');
+    lines.push('');
+    lines.push('```text');
+    lines.push(' '.repeat(axisWidth) + rulerTens.join(''));
+    lines.push(' '.repeat(axisWidth) + rulerOnes.join(''));
+
+    for (let y = 0; y < height; y++) {
+      let row = '';
+      for (let x = 0; x < width; x++) {
+        const index = grid[y * width + x];
+        if (index === 0) {
+          row += '.';
+        } else {
+          row += legend.get(palette[index]) || '?';
+        }
+      }
+      lines.push(`${pad(y, axisWidth - 1)} ${row}`);
+    }
+    lines.push('```');
+    lines.push('');
   }
-  lines.push('```');
-  lines.push('');
 
   return {
     blob: new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' }),

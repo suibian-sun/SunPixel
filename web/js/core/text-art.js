@@ -38,14 +38,22 @@ function renderTextToImageData(text, options = {}) {
   const padding = Number(options.padding || 0);
   const strokeWidth = Number(options.strokeWidth || 0);
   const autoFit = options.autoFit !== false;
+  // 字形拉伸与位移：先在逻辑坐标系里排版，再整体缩放，避免字距被二次修正
+  const scaleX = Math.min(2, Math.max(0.4, Number(options.scaleX || 1)));
+  const scaleY = Math.min(2, Math.max(0.4, Number(options.scaleY || 1)));
+  const offsetX = Number(options.offsetX || 0);
+  const offsetY = Number(options.offsetY || 0);
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.clearRect(0, 0, width, height);
 
   const lines = splitLines(text);
-  const usableWidth = Math.max(1, width - padding * 2);
-  const usableHeight = Math.max(1, height - padding * 2);
+  // 逻辑画布比目标画布大/小，取决于拉伸比例
+  const logicalWidth = width / scaleX;
+  const logicalHeight = height / scaleY;
+  const usableWidth = Math.max(1, logicalWidth - padding * 2);
+  const usableHeight = Math.max(1, logicalHeight - padding * 2);
 
   let fontSize = Math.max(1, Math.round(options.fontSize || height));
   const weight = bold ? 700 : 400;
@@ -79,8 +87,11 @@ function renderTextToImageData(text, options = {}) {
 
   // 逐行绘制，垂直居中
   const totalHeight = lines.length * fontSize * lineHeight;
-  let baseline = (height - totalHeight) / 2 + fontSize * (lineHeight - 1) / 2 + fontSize * 0.8;
+  let baseline = (logicalHeight - totalHeight) / 2 + fontSize * (lineHeight - 1) / 2 + fontSize * 0.8;
 
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(scaleX, scaleY);
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#000000';
   ctx.strokeStyle = '#000000';
@@ -89,8 +100,8 @@ function renderTextToImageData(text, options = {}) {
   for (const line of lines) {
     let x;
     if (align === 'left') x = padding;
-    else if (align === 'right') x = width - padding;
-    else x = width / 2;
+    else if (align === 'right') x = logicalWidth - padding;
+    else x = logicalWidth / 2;
     ctx.textAlign = align === 'left' ? 'left' : align === 'right' ? 'right' : 'center';
 
     if (letterSpacing !== 0) {
@@ -120,6 +131,8 @@ function renderTextToImageData(text, options = {}) {
 
     baseline += fontSize * lineHeight;
   }
+
+  ctx.restore();
 
   const imageData = ctx.getImageData(0, 0, width, height);
   return { width, height, data: imageData.data };

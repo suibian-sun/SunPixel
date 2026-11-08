@@ -6,6 +6,8 @@ import {
 } from '../converter.js';
 import { generateOutput, FORMAT_EXTENSIONS } from '../formatter.js';
 import { renderTextToImageData, colorizeText } from '../core/text-art.js';
+import { adjustPixels } from '../core/adjust.js';
+import { createZip } from '../core/zip.js';
 
 const { createApp, ref, computed, onMounted, onBeforeUnmount, watch, nextTick } = Vue;
 
@@ -35,6 +37,20 @@ createApp({
     const alphaThreshold = ref(128);
     const smoothScale = ref(true);
 
+    // 强化地图画：用柱子高低差换额外色阶
+    const mapArt = ref(false);
+    const mapLayers = ref(8);
+    // 0 表示不限制；其余为最多使用的方块种类
+    const maxBlocks = ref(0);
+
+    // 图片预处理
+    const brightness = ref(0);
+    const contrast = ref(0);
+    const saturation = ref(100);
+    const gamma = ref(1);
+    const grayscale = ref(false);
+    const invert = ref(false);
+
     const allBlocks = ref([...BLOCK_NAMES]);
     const selectedBlocks = ref(['wool', 'concrete']);
 
@@ -50,6 +66,15 @@ createApp({
     const textColor = ref('#111111');
     const textTransparent = ref(true);
     const textThreshold = ref(110);
+    // 字形拉伸与位移（%），加粗强度按像素描边
+    const scaleX = ref(100);
+    const scaleY = ref(100);
+    const offsetX = ref(0);
+    const offsetY = ref(0);
+    const boldness = ref(0);
+    const customFont = ref('');
+    const customFontLabel = ref('');
+    const isExportingChars = ref(false);
 
     const FONT_STACKS = {
       system: '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif',
@@ -57,6 +82,11 @@ createApp({
       mono: '"JetBrains Mono", Consolas, "Courier New", monospace',
       heiti: '"Heiti SC", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     };
+
+    const fontStack = computed(() => {
+      if (customFont.value) return `"${customFont.value}", ${FONT_STACKS.system}`;
+      return FONT_STACKS[fontFamily.value] || FONT_STACKS.system;
+    });
 
     /* ---------------- 运行状态 ---------------- */
     const hasImage = ref(false);
@@ -73,6 +103,7 @@ createApp({
     const isConverting = ref(false);
     const changelogs = ref([]);
     const fileInput = ref(null);
+    const fontInput = ref(null);
     const previewCanvas = ref(null);
     const originalImg = ref(null);
     const hasPreview = ref(false);
@@ -123,6 +154,11 @@ createApp({
       syncing = false;
     });
 
+    // 地图画依赖柱子沿南北向的高度差，只能平铺
+    watch(mapArt, (on) => {
+      if (on && plane.value !== 'xz') plane.value = 'xz';
+    });
+
     /* ---------------- 交互 ---------------- */
     function clampSize(value) {
       if (!Number.isFinite(value)) return 1;
@@ -131,6 +167,10 @@ createApp({
 
     function triggerFileInput() {
       fileInput.value?.click();
+    }
+
+    function triggerFontInput() {
+      fontInput.value?.click();
     }
 
     function handleDrop(event) {
@@ -252,29 +292,51 @@ createApp({
     }
 
     /* ---------------- 素材 ---------------- */
+    /** 统一做图像调节；参数全为默认值时原样返回，不产生额外开销 */
+    function applyAdjustments(source) {
+      return adjustPixels(source, {
+        brightness: Number(brightness.value),
+        contrast: Number(contrast.value),
+        saturation: Number(saturation.value),
+        gamma: Number(gamma.value),
+        grayscale: grayscale.value,
+        invert: invert.value
+      });
+    }
+
+    /** 按当前设置取源像素：文字先渲染成位图，图片先缩放到目标尺寸 */
     function buildImageData() {
+      let source;
+
       if (mode.value === 'text') {
         const rendered = renderTextToImageData(text.value, {
           width: width.value,
           height: height.value,
-          fontFamily: FONT_STACKS[fontFamily.value] || FONT_STACKS.system,
+          fontFamily: fontStack.value,
           fontSize: fontSize.value,
           bold: bold.value,
           italic: italic.value,
           align: align.value,
           lineHeight: Number(lineHeight.value),
           letterSpacing: Number(letterSpacing.value),
+          strokeWidth: Number(boldness.value),
+          scaleX: Number(scaleX.value) / 100,
+          scaleY: Number(scaleY.value) / 100,
+          offsetX: Number(offsetX.value),
+          offsetY: Number(offsetY.value),
           padding: 2
         });
-        return colorizeText(rendered, {
+        source = colorizeText(rendered, {
           threshold: Number(textThreshold.value),
           foreground: hexToRgb(textColor.value),
           background: textTransparent.value ? 'transparent' : [255, 255, 255]
         });
+      } else {
+        if (!imageElement) throw new Error('请先选择图片');
+        source = getImagePixels(imageElement, width.value, height.value, { smooth: smoothScale.value });
       }
 
-      if (!imageElement) throw new Error('请先选择图片');
-      return getImagePixels(imageElement, width.value, height.value, { smooth: smoothScale.value });
+      return applyAdjustments(source);
     }
 
     /* ---------------- 主流程 ---------------- */
@@ -310,6 +372,11 @@ createApp({
       const started = Date.now();
 
       try {
+        const usingMapArt = mapArt.value && mode.value === 'image';
+        if (usingMapArt && (width.value > 384 || height.value > 256)) {
+          throw new Error('强化地图画最大 384 × 256，请先调小尺寸');
+        }
+
         const imageData = buildImageData();
         if (token !== runToken) return;
 
@@ -325,7 +392,10 @@ createApp({
           plane: plane.value,
           rotate: Number(rotate.value),
           mirrorX: mirrorX.value,
-          mirrorY: mirrorY.value
+          mirrorY: mirrorY.value,
+          mapArt: usingMapArt,
+          mapLayers: Number(mapLayers.value),
+          maxBlocks: Number(maxBlocks.value)
         });
         if (token !== runToken) return;
         result = next;
@@ -346,10 +416,11 @@ createApp({
 
         const elapsedMs = Date.now() - started;
         const elapsed = elapsedMs < 1000 ? `${elapsedMs}ms` : `${(elapsedMs / 1000).toFixed(2)}s`;
-        const isWall = plane.value === 'xy';
+        const isWall = result.plane === 'xy';
         stats.value = {
           width: result.size.x,
           height: isWall ? result.size.y : result.size.z,
+          layers: result.mapArt ? result.size.y : 0,
           totalBlocks: result.totalBlocks,
           blockTypes: result.counts.size,
           elapsed
@@ -409,6 +480,16 @@ createApp({
       canvas.height = h;
 
       const ctx = canvas.getContext('2d');
+
+      // 地图画自带「按明暗档位上色」的像素，直接贴上才看得出成品在游戏地图里的样子
+      if (current.previewPixels && current.previewPixels.width === w && current.previewPixels.height === h) {
+        ctx.putImageData(new ImageData(new Uint8ClampedArray(current.previewPixels.data), w, h), 0, 0);
+        hasPreview.value = true;
+        previewSize.value = `${w} × ${h} · 地图配色`;
+        fitMedia(canvas, w, h);
+        return;
+      }
+
       const image = ctx.createImageData(w, h);
       const pixels = image.data;
 
@@ -466,6 +547,124 @@ createApp({
     async function downloadFile() {
       if (!downloadBlob.value) return;
       triggerDownload(downloadBlob.value, downloadFilename.value);
+    }
+
+    /** 载入自定义字体（TTF / OTF / WOFF），用于文字像素画 */
+    async function handleFontFile(event) {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      if (!/\.(ttf|otf|woff2?)$/i.test(file.name)) {
+        notify('请选择 TTF / OTF / WOFF 字体文件', 'error');
+        return;
+      }
+      if (file.size > 12 * 1024 * 1024) {
+        notify('字体文件过大，请控制在 12MB 以内', 'error');
+        return;
+      }
+      try {
+        const buffer = await file.arrayBuffer();
+        const name = `SunPixelFont${Date.now()}`;
+        const face = new FontFace(name, buffer);
+        await face.load();
+        document.fonts.add(face);
+        customFont.value = name;
+        customFontLabel.value = file.name.replace(/\.[^.]+$/, '');
+        notify(`字体已载入：${customFontLabel.value}`, 'success');
+        scheduleRun(0);
+      } catch (error) {
+        notify(`字体载入失败：${error.message}`, 'error');
+      }
+    }
+
+    function resetFont() {
+      customFont.value = '';
+      customFontLabel.value = '';
+      scheduleRun(0);
+    }
+
+    /**
+     * 逐字导出：每个字符单独生成 128×128 的结构，打包成一个 zip
+     * 思路来自 minecraft-block-letter 的字符投影，方便做字库或逐字搭建。
+     */
+    async function exportCharacters() {
+      if (mode.value !== 'text' || isExportingChars.value) return;
+      const chars = [...new Set(Array.from(String(text.value).replace(/[\r\n\t]/g, '')))]
+        .filter((ch) => ch.trim().length > 0);
+      if (!chars.length) {
+        notify('没有可导出的字符', 'error');
+        return;
+      }
+      if (chars.length > 200) {
+        notify('字符太多，单次最多 200 个', 'error');
+        return;
+      }
+
+      isExportingChars.value = true;
+      try {
+        const files = [];
+        const usedNames = new Set();
+
+        for (let i = 0; i < chars.length; i++) {
+          const ch = chars[i];
+          const rendered = renderTextToImageData(ch, {
+            width: 128,
+            height: 128,
+            fontFamily: fontStack.value,
+            fontSize: 96,
+            bold: bold.value,
+            italic: italic.value,
+            align: 'center',
+            lineHeight: 1.1,
+            letterSpacing: 0,
+            strokeWidth: Number(boldness.value),
+            scaleX: Number(scaleX.value) / 100,
+            scaleY: Number(scaleY.value) / 100,
+            offsetX: Number(offsetX.value),
+            offsetY: Number(offsetY.value),
+            padding: 2
+          });
+          const pixels = colorizeText(rendered, {
+            threshold: Number(textThreshold.value),
+            foreground: hexToRgb(textColor.value),
+            background: textTransparent.value ? 'transparent' : [255, 255, 255]
+          });
+          const single = processPixels(applyAdjustments(pixels), selectedBlocks.value, {
+            metric: metric.value,
+            dither: dither.value,
+            serpentine: serpentine.value,
+            alphaThreshold: Number(alphaThreshold.value),
+            plane: 'xz',
+            rotate: 0,
+            mirrorX: false,
+            mirrorY: false,
+            maxBlocks: Number(maxBlocks.value)
+          });
+          const output = await generateOutput(single, format.value, 'char', { name: ch });
+
+          let base = ch.replace(/[\\/:*?"<>|\s]/g, '_');
+          if (!base) base = `U${ch.codePointAt(0).toString(16).toUpperCase()}`;
+          if (usedNames.has(base)) base = `${base}_${i + 1}`;
+          usedNames.add(base);
+
+          files.push({
+            name: `${base}.${FORMAT_EXTENSIONS[format.value]}`,
+            data: new Uint8Array(await output.blob.arrayBuffer())
+          });
+
+          progress.value = Math.round(((i + 1) / chars.length) * 100);
+          progressMessage.value = `逐字导出 ${i + 1}/${chars.length}`;
+        }
+
+        triggerDownload(createZip(files), `SunPixel_逐字_${chars.length}个.zip`);
+        notify(`已导出 ${chars.length} 个字符`, 'success');
+      } catch (error) {
+        notify(`逐字导出失败：${error.message}`, 'error');
+      } finally {
+        isExportingChars.value = false;
+        progress.value = 0;
+        progressMessage.value = '';
+      }
     }
 
     async function downloadExtra(kind) {
@@ -554,7 +753,9 @@ createApp({
       [
         mode, width, height, plane, rotate, mirrorX, mirrorY, metric, dither, serpentine,
         alphaThreshold, smoothScale, selectedBlocks, text, fontFamily, fontSize, bold,
-        italic, align, lineHeight, letterSpacing, textColor, textTransparent, textThreshold
+        italic, align, lineHeight, letterSpacing, textColor, textTransparent, textThreshold,
+        mapArt, mapLayers, maxBlocks, brightness, contrast, saturation, gamma, grayscale, invert,
+        scaleX, scaleY, offsetX, offsetY, boldness, customFont
       ],
       () => scheduleRun(),
       { deep: true }
@@ -573,14 +774,18 @@ createApp({
     return {
       mode, format, width, height, lockAspect, plane, rotate, mirrorX, mirrorY,
       metric, dither, serpentine, alphaThreshold, smoothScale,
+      mapArt, mapLayers, maxBlocks,
+      brightness, contrast, saturation, gamma, grayscale, invert,
       allBlocks, selectedBlocks, displayBlocks,
       text, fontFamily, fontSize, bold, italic, align, lineHeight, letterSpacing,
       textColor, textTransparent, textThreshold,
+      scaleX, scaleY, offsetX, offsetY, boldness, customFont, customFontLabel, isExportingChars,
       uploadedFileName, imageUrl, originalPreview, imageSize, hasImage,
       showPreview, showResult, showChangelog, hasPreview, previewSize,
       progress, progressMessage, errorMessage, isConverting, changelogs, fileInput,
-      previewCanvas, originalImg, stats, materials, canConvert, downloadFilename, toast, runCount,
+      previewCanvas, originalImg, fontInput, stats, materials, canConvert, downloadFilename, toast, runCount,
       triggerFileInput, handleDrop, handleFileUpload, loadImageFromUrl,
+      handleFontFile, resetFont, exportCharacters, triggerFontInput,
       toggleBlock, selectAll, clearAll, selectCommon,
       startConversion, downloadFile, downloadExtra,
       formatChangelog, notify, FORMAT_EXTENSIONS

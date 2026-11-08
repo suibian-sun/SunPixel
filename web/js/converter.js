@@ -1,6 +1,9 @@
 import { BLOCK_DATA, BLOCK_NAMES, BLOCK_DISPLAY_NAMES } from './block-data.js';
 import { buildPalette, createMatcher } from './core/color.js';
 import { pixelate } from './core/pixelate.js';
+import { pixelateMap } from './core/mapart.js';
+import { limitPalette } from './core/palette-limit.js';
+import { MAP_BLOCK_DATA } from './data/map-colors.js';
 
 /**
  * 从图片对象按目标分辨率取像素
@@ -20,13 +23,25 @@ function getImagePixels(image, width, height, options = {}) {
   return { width: canvas.width, height: canvas.height, data: imageData.data };
 }
 
-/** 由方块类型构建匹配器 */
-function createMatcherFromTypes(blockTypes, metric = 'lab') {
-  const palette = buildPalette(blockTypes, BLOCK_DATA);
+/** 由方块类型构建匹配器，可选限制方块种类（备料优化） */
+function createMatcherFromTypes(blockTypes, metric = 'lab', maxBlocks = 0) {
+  let palette = buildPalette(blockTypes, BLOCK_DATA);
   if (!palette.entries.length) {
     throw new Error('所选方块类型没有任何颜色数据');
   }
+  if (maxBlocks > 0 && maxBlocks < new Set(palette.entries.map((e) => e.block)).size) {
+    palette = { entries: limitPalette(palette.entries, maxBlocks), blocks: [] };
+  }
   return createMatcher(palette, metric);
+}
+
+/** 预览色：同一方块只取第一次出现的颜色 */
+function colorsForPalette(palette, entries) {
+  const byBlock = new Map();
+  for (const entry of entries) {
+    if (!byBlock.has(entry.block)) byBlock.set(entry.block, entry.rgb);
+  }
+  return palette.map((name) => byBlock.get(name) || null);
 }
 
 /**
@@ -36,20 +51,35 @@ function createMatcherFromTypes(blockTypes, metric = 'lab') {
  * @param {object} options
  */
 function processPixels(imageData, blockTypes, options = {}) {
-  const matcher = createMatcherFromTypes(blockTypes, options.metric || 'lab');
-  const result = pixelate(imageData, matcher, options);
-
-  // 预览用的颜色（与 palette 索引对齐，空气为 null）。
-  // 用 Map 查表，别在调色板上做线性查找，否则大调色板会明显拖慢预览。
-  const byBlock = new Map();
-  for (const entry of matcher.entries) {
-    if (!byBlock.has(entry.block)) byBlock.set(entry.block, entry.rgb);
+  if (options.mapArt) {
+    const result = pixelateMap(imageData, {
+      types: blockTypes,
+      alphaThreshold: options.alphaThreshold,
+      mapLayers: options.mapLayers
+    });
+    const entries = result.palette
+      .filter((name) => name !== 'minecraft:air')
+      .map((name) => {
+        const short = name.replace('minecraft:', '');
+        const info = MAP_BLOCK_DATA[short];
+        return { block: name, rgb: info ? info.shades[0] : [128, 128, 128] };
+      });
+    return {
+      ...result,
+      colors: colorsForPalette(result.palette, entries),
+      blockPalette: result.palette,
+      blockCounts: Object.fromEntries(
+        [...result.counts.entries()].map(([name, count]) => [name.replace('minecraft:', ''), count])
+      )
+    };
   }
-  const colors = result.palette.map((name) => byBlock.get(name) || null);
+
+  const matcher = createMatcherFromTypes(blockTypes, options.metric || 'lab', options.maxBlocks || 0);
+  const result = pixelate(imageData, matcher, options);
 
   return {
     ...result,
-    colors,
+    colors: colorsForPalette(result.palette, matcher.entries),
     blockPalette: result.palette,
     blockCounts: Object.fromEntries(
       [...result.counts.entries()].map(([name, count]) => [name.replace('minecraft:', ''), count])

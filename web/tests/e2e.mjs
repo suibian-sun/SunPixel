@@ -221,6 +221,79 @@ try {
   assert.equal(csvLines[0], 'x,y,z,block');
   results.push(['材料清单', `${csvPath} (${csvLines.length - 1} 行数据)`]);
 
+  /* ---------- 7. 强化地图画：应生成多层结构 ---------- */
+  await page.selectOption('#format-select', 'schem');
+  mark = await runCount();
+  await page.check('#mapart-toggle');
+  await waitRun(mark);
+
+  assert.ok(
+    (await page.locator('.stat-card:has-text("层数")').count()) > 0,
+    '地图画应显示层数统计'
+  );
+  const mapCaption = await page.locator('#preview-item figcaption').textContent();
+  assert.match(mapCaption, /地图配色/, '地图画预览应提示按地图配色显示');
+
+  const mapPath = await saveDownload(() => page.click('#download-file'), 'map.schem');
+  const mapDir = mkdtempSync(join(tmpdir(), 'sunpixel-map-'));
+  writeFileSync(join(mapDir, 'sample.schem'), readFileSync(mapPath));
+  const mapReport = JSON.parse(
+    execFileSync('python3', [join(here, 'validate_nbt.py'), mapDir], { encoding: 'utf8' })
+  );
+  assert.ok(!mapReport.schem.error, mapReport.schem.error);
+  assert.ok(mapReport.schem.height > 1, `地图画应有高度差，实际 ${mapReport.schem.height}`);
+  results.push(['强化地图画', `${mapReport.schem.width}×${mapReport.schem.height}×${mapReport.schem.length}`]);
+
+  mark = await runCount();
+  await page.uncheck('#mapart-toggle');
+  await waitRun(mark);
+
+  /* ---------- 8. 图片调节应改变效果图 ---------- */
+  const beforeAdjust = await readPreview();
+  mark = await runCount();
+  await page.evaluate(() => {
+    const input = document.querySelector('#brightness');
+    input.value = '70';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await waitRun(mark);
+  const afterAdjust = await readPreview();
+  assert.notDeepEqual(afterAdjust.topLeft, beforeAdjust.topLeft, '调亮度后效果图应变化');
+  results.push(['图片调节', `亮度 +70 后左上角 ${afterAdjust.topLeft.join(',')}`]);
+
+  mark = await runCount();
+  await page.evaluate(() => {
+    const input = document.querySelector('#brightness');
+    input.value = '0';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await waitRun(mark);
+
+  /* ---------- 9. 文字：字形拉伸与逐字导出 ---------- */
+  await page.click('#mode-text');
+  mark = await runCount();
+  await page.fill('#text-input', 'AB');
+  await waitRun(mark);
+
+  mark = await runCount();
+  await page.evaluate(() => {
+    const input = document.querySelector('#scale-x');
+    input.value = '140';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await waitRun(mark);
+
+  const zipPath = await saveDownload(() => page.click('#download-chars'), 'chars.zip');
+  const zipNames = JSON.parse(
+    execFileSync(
+      'python3',
+      ['-c', 'import json,sys,zipfile; print(json.dumps(zipfile.ZipFile(sys.argv[1]).namelist()))', zipPath],
+      { encoding: 'utf8' }
+    )
+  );
+  assert.deepEqual(zipNames.sort(), ['A.schem', 'B.schem'], '逐字导出内容不对');
+  results.push(['逐字导出', `${zipPath}（${zipNames.join('、')}）`]);
+
   const cardText = await page.textContent('#result-card');
   assert.ok(!/undefined|NaN/.test(cardText), '结果区出现 undefined / NaN');
 

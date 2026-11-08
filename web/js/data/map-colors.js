@@ -1,0 +1,132 @@
+/**
+ * 地图画色板：每个方块在游戏地图上的四档颜色
+ *
+ * 顺序为 [普通, 偏暗, 偏亮, 最暗]，对应方块柱比北侧高一格 / 低一格 / 同高一格。
+ * 地图渲染时颜色由「该柱与北侧柱的高度差」决定，因此这四档颜色可以把
+ * 16 色方块扩展成 4 倍色阶——这正是强化地图画的原理。
+ *
+ * 颜色值取自 TgkRuobin/vue3-mcpixelart 的 blocksArt.json（Apache-2.0），
+ * 仅保留地图颜色数据，算法为本项目重新实现。
+ */
+
+const MAP_BLOCK_DATA = {
+  // 羊毛（wool）
+  white_wool: { type: 'wool', name: '白色羊毛', shades: [[171,171,171],[140,140,140],[199,199,199],[105,105,105]] },
+  orange_wool: { type: 'wool', name: '橙色羊毛', shades: [[186,109,44],[152,89,36],[216,127,51],[114,67,27]] },
+  magenta_wool: { type: 'wool', name: '品红色羊毛', shades: [[153,65,186],[125,53,152],[178,76,216],[94,40,114]] },
+  light_blue_wool: { type: 'wool', name: '淡蓝色羊毛', shades: [[88,132,186],[72,108,152],[102,153,216],[54,81,114]] },
+  yellow_wool: { type: 'wool', name: '黄色羊毛', shades: [[197,197,44],[161,161,36],[229,229,51],[121,121,27]] },
+  lime_wool: { type: 'wool', name: '黄绿色羊毛', shades: [[109,176,21],[89,144,17],[127,204,25],[67,108,13]] },
+  pink_wool: { type: 'wool', name: '粉红色羊毛', shades: [[208,109,142],[170,89,116],[242,127,165],[128,67,87]] },
+  gray_wool: { type: 'wool', name: '灰色羊毛', shades: [[65,65,65],[53,53,53],[76,76,76],[40,40,40]] },
+  light_gray_wool: { type: 'wool', name: '淡灰色羊毛', shades: [[132,132,132],[108,108,108],[153,153,153],[81,81,81]] },
+  cyan_wool: { type: 'wool', name: '青色羊毛', shades: [[65,109,132],[53,89,108],[76,127,153],[40,67,81]] },
+  purple_wool: { type: 'wool', name: '紫色羊毛', shades: [[109,54,153],[89,44,125],[127,63,178],[67,33,94]] },
+  blue_wool: { type: 'wool', name: '蓝色羊毛', shades: [[44,65,153],[36,53,125],[51,76,178],[27,40,94]] },
+  brown_wool: { type: 'wool', name: '棕色羊毛', shades: [[88,65,44],[72,53,36],[102,76,51],[54,40,27]] },
+  green_wool: { type: 'wool', name: '绿色羊毛', shades: [[88,109,44],[72,89,36],[102,127,51],[54,67,27]] },
+  red_wool: { type: 'wool', name: '红色羊毛', shades: [[132,44,44],[108,36,36],[153,51,51],[81,27,27]] },
+  black_wool: { type: 'wool', name: '黑色羊毛', shades: [[21,21,21],[17,17,17],[25,25,25],[13,13,13]] },
+  // 地毯（carpet）
+  white_carpet: { type: 'carpet', name: '白色地毯', shades: [[171,171,171],[140,140,140],[199,199,199],[105,105,105]] },
+  orange_carpet: { type: 'carpet', name: '橙色地毯', shades: [[186,109,44],[152,89,36],[216,127,51],[114,67,27]] },
+  magenta_carpet: { type: 'carpet', name: '品红色地毯', shades: [[153,65,186],[125,53,152],[178,76,216],[94,40,114]] },
+  light_blue_carpet: { type: 'carpet', name: '淡蓝色地毯', shades: [[88,132,186],[72,108,152],[102,153,216],[54,81,114]] },
+  yellow_carpet: { type: 'carpet', name: '黄色地毯', shades: [[197,197,44],[161,161,36],[229,229,51],[121,121,27]] },
+  lime_carpet: { type: 'carpet', name: '黄绿色地毯', shades: [[109,176,21],[89,144,17],[127,204,25],[67,108,13]] },
+  pink_carpet: { type: 'carpet', name: '粉红色地毯', shades: [[208,109,142],[170,89,116],[242,127,165],[128,67,87]] },
+  gray_carpet: { type: 'carpet', name: '灰色地毯', shades: [[65,65,65],[53,53,53],[76,76,76],[40,40,40]] },
+  light_gray_carpet: { type: 'carpet', name: '淡灰色地毯', shades: [[132,132,132],[108,108,108],[153,153,153],[81,81,81]] },
+  cyan_carpet: { type: 'carpet', name: '青色地毯', shades: [[65,109,132],[53,89,108],[76,127,153],[40,67,81]] },
+  purple_carpet: { type: 'carpet', name: '紫色地毯', shades: [[109,54,153],[89,44,125],[127,63,178],[67,33,94]] },
+  blue_carpet: { type: 'carpet', name: '蓝色地毯', shades: [[44,65,153],[36,53,125],[51,76,178],[27,40,94]] },
+  brown_carpet: { type: 'carpet', name: '棕色地毯', shades: [[88,65,44],[72,53,36],[102,76,51],[54,40,27]] },
+  green_carpet: { type: 'carpet', name: '绿色地毯', shades: [[88,109,44],[72,89,36],[102,127,51],[54,67,27]] },
+  red_carpet: { type: 'carpet', name: '红色地毯', shades: [[132,44,44],[108,36,36],[153,51,51],[81,27,27]] },
+  black_carpet: { type: 'carpet', name: '黑色地毯', shades: [[21,21,21],[17,17,17],[25,25,25],[13,13,13]] },
+  // 玻璃（glass）
+  white_stained_glass: { type: 'glass', name: '白色玻璃', shades: [[171,171,171],[140,140,140],[199,199,199],[105,105,105]] },
+  orange_stained_glass: { type: 'glass', name: '橙色玻璃', shades: [[186,109,44],[152,89,36],[216,127,51],[114,67,27]] },
+  magenta_stained_glass: { type: 'glass', name: '品红色玻璃', shades: [[153,65,186],[125,53,152],[178,76,216],[94,40,114]] },
+  light_blue_stained_glass: { type: 'glass', name: '淡蓝色玻璃', shades: [[88,132,186],[72,108,152],[102,153,216],[54,81,114]] },
+  yellow_stained_glass: { type: 'glass', name: '黄色玻璃', shades: [[197,197,44],[161,161,36],[229,229,51],[121,121,27]] },
+  lime_stained_glass: { type: 'glass', name: '黄绿色玻璃', shades: [[109,176,21],[89,144,17],[127,204,25],[67,108,13]] },
+  pink_stained_glass: { type: 'glass', name: '粉红色玻璃', shades: [[208,109,142],[170,89,116],[242,127,165],[128,67,87]] },
+  gray_stained_glass: { type: 'glass', name: '灰色玻璃', shades: [[65,65,65],[53,53,53],[76,76,76],[40,40,40]] },
+  light_gray_stained_glass: { type: 'glass', name: '淡灰色玻璃', shades: [[132,132,132],[108,108,108],[153,153,153],[81,81,81]] },
+  cyan_stained_glass: { type: 'glass', name: '青色玻璃', shades: [[65,109,132],[53,89,108],[76,127,153],[40,67,81]] },
+  purple_stained_glass: { type: 'glass', name: '紫色玻璃', shades: [[109,54,153],[89,44,125],[127,63,178],[67,33,94]] },
+  blue_stained_glass: { type: 'glass', name: '蓝色玻璃', shades: [[44,65,153],[36,53,125],[51,76,178],[27,40,94]] },
+  brown_stained_glass: { type: 'glass', name: '棕色玻璃', shades: [[88,65,44],[72,53,36],[102,76,51],[54,40,27]] },
+  green_stained_glass: { type: 'glass', name: '绿色玻璃', shades: [[88,109,44],[72,89,36],[102,127,51],[54,67,27]] },
+  red_stained_glass: { type: 'glass', name: '红色玻璃', shades: [[132,44,44],[108,36,36],[153,51,51],[81,27,27]] },
+  black_stained_glass: { type: 'glass', name: '黑色玻璃', shades: [[21,21,21],[17,17,17],[25,25,25],[13,13,13]] },
+  // 混凝土（concrete）
+  white_concrete: { type: 'concrete', name: '白色混凝土', shades: [[171,171,171],[140,140,140],[199,199,199],[105,105,105]] },
+  orange_concrete: { type: 'concrete', name: '橙色混凝土', shades: [[186,109,44],[152,89,36],[216,127,51],[114,67,27]] },
+  magenta_concrete: { type: 'concrete', name: '品红色混凝土', shades: [[153,65,186],[125,53,152],[178,76,216],[94,40,114]] },
+  light_blue_concrete: { type: 'concrete', name: '淡蓝色混凝土', shades: [[88,132,186],[72,108,152],[102,153,216],[54,81,114]] },
+  yellow_concrete: { type: 'concrete', name: '黄色混凝土', shades: [[197,197,44],[161,161,36],[229,229,51],[121,121,27]] },
+  lime_concrete: { type: 'concrete', name: '黄绿色混凝土', shades: [[109,176,21],[89,144,17],[127,204,25],[67,108,13]] },
+  pink_concrete: { type: 'concrete', name: '粉红色混凝土', shades: [[208,109,142],[170,89,116],[242,127,165],[128,67,87]] },
+  gray_concrete: { type: 'concrete', name: '灰色混凝土', shades: [[65,65,65],[53,53,53],[76,76,76],[40,40,40]] },
+  light_gray_concrete: { type: 'concrete', name: '淡灰色混凝土', shades: [[132,132,132],[108,108,108],[153,153,153],[81,81,81]] },
+  cyan_concrete: { type: 'concrete', name: '青色混凝土', shades: [[65,109,132],[53,89,108],[76,127,153],[40,67,81]] },
+  purple_concrete: { type: 'concrete', name: '紫色混凝土', shades: [[109,54,153],[89,44,125],[127,63,178],[67,33,94]] },
+  blue_concrete: { type: 'concrete', name: '蓝色混凝土', shades: [[44,65,153],[36,53,125],[51,76,178],[27,40,94]] },
+  brown_concrete: { type: 'concrete', name: '棕色混凝土', shades: [[88,65,44],[72,53,36],[102,76,51],[54,40,27]] },
+  green_concrete: { type: 'concrete', name: '绿色混凝土', shades: [[88,109,44],[72,89,36],[102,127,51],[54,67,27]] },
+  red_concrete: { type: 'concrete', name: '红色混凝土', shades: [[132,44,44],[108,36,36],[153,51,51],[81,27,27]] },
+  black_concrete: { type: 'concrete', name: '黑色混凝土', shades: [[21,21,21],[17,17,17],[25,25,25],[13,13,13]] },
+  // 陶瓦（terracotta）
+  white_terracotta: { type: 'terracotta', name: '白色陶瓦', shades: [[180,152,138],[147,124,113],[209,177,161],[110,93,85]] },
+  orange_terracotta: { type: 'terracotta', name: '橙色陶瓦', shades: [[137,70,31],[112,57,25],[159,82,36],[84,43,19]] },
+  magenta_terracotta: { type: 'terracotta', name: '品红色陶瓦', shades: [[128,75,93],[105,61,76],[149,87,108],[78,46,57]] },
+  light_blue_terracotta: { type: 'terracotta', name: '淡蓝色陶瓦', shades: [[96,93,119],[79,76,97],[112,108,138],[59,57,73]] },
+  yellow_terracotta: { type: 'terracotta', name: '黄色陶瓦', shades: [[160,114,31],[131,93,25],[186,133,36],[98,70,19]] },
+  lime_terracotta: { type: 'terracotta', name: '黄绿色陶瓦', shades: [[88,100,45],[72,82,37],[103,117,53],[54,61,28]] },
+  pink_terracotta: { type: 'terracotta', name: '粉红色陶瓦', shades: [[138,66,67],[112,54,55],[160,77,78],[84,40,41]] },
+  gray_terracotta: { type: 'terracotta', name: '灰色陶瓦', shades: [[49,35,30],[40,28,24],[57,41,35],[30,21,18]] },
+  light_gray_terracotta: { type: 'terracotta', name: '淡灰色陶瓦', shades: [[116,92,84],[95,75,69],[135,107,98],[71,56,51]] },
+  cyan_terracotta: { type: 'terracotta', name: '青色陶瓦', shades: [[75,79,79],[61,64,64],[87,92,92],[46,48,48]] },
+  purple_terracotta: { type: 'terracotta', name: '紫色陶瓦', shades: [[105,62,75],[86,51,62],[122,73,88],[64,38,46]] },
+  blue_terracotta: { type: 'terracotta', name: '蓝色陶瓦', shades: [[65,53,79],[53,43,64],[76,62,92],[40,32,48]] },
+  brown_terracotta: { type: 'terracotta', name: '棕色陶瓦', shades: [[65,43,30],[53,35,24],[76,50,35],[40,26,18]] },
+  green_terracotta: { type: 'terracotta', name: '绿色陶瓦', shades: [[65,70,36],[53,57,29],[76,82,42],[40,43,22]] },
+  red_terracotta: { type: 'terracotta', name: '红色陶瓦', shades: [[122,51,39],[100,42,32],[142,60,46],[75,31,24]] },
+  black_terracotta: { type: 'terracotta', name: '黑色陶瓦', shades: [[31,18,13],[26,15,11],[37,22,16],[19,11,8]] },
+  // 矿物（mine）
+  redstone_block: { type: 'mine', name: '红石块', shades: [[220,0,0],[180,0,0],[255,0,0],[135,0,0]] },
+  iron_block: { type: 'mine', name: '铁块', shades: [[144,144,144],[117,117,117],[167,167,167],[88,88,88]] },
+  quartz_block: { type: 'mine', name: '石英块', shades: [[220,217,211],[180,177,172],[255,252,245],[135,133,129]] },
+  gold_block: { type: 'mine', name: '金块', shades: [[215,205,66],[176,168,54],[250,238,77],[132,126,40]] },
+  diamond_block: { type: 'mine', name: '钻石块', shades: [[79,188,183],[64,154,150],[92,219,213],[48,115,112]] },
+  lapis_block: { type: 'mine', name: '青金石块', shades: [[63,110,220],[52,90,180],[74,128,255],[39,67,135]] },
+  emerald_block: { type: 'mine', name: '绿宝石块', shades: [[0,187,50],[0,153,40],[0,217,58],[0,114,30]] },
+  raw_iron_block: { type: 'mine', name: '铁矿', shades: [[186,150,126],[152,123,103],[216,175,147],[114,92,77]] },
+  // 其他（others）
+  grass_block: { type: 'others', name: '草方块', shades: [[109,153,48],[89,125,39],[127,178,56],[67,94,29]] },
+  sandstone: { type: 'others', name: '沙石', shades: [[213,201,140],[174,164,115],[247,233,163],[130,123,86]] },
+  packed_ice: { type: 'others', name: '浮冰', shades: [[138,138,220],[112,112,180],[160,160,255],[84,84,135]] },
+  oak_leaves: { type: 'others', name: '树叶', shades: [[0,106,0],[0,87,0],[0,124,0],[0,65,0]] },
+  snow_block: { type: 'others', name: '雪块', shades: [[220,220,220],[180,180,180],[255,255,255],[135,135,135]] },
+  clay: { type: 'others', name: '黏土块', shades: [[141,144,158],[115,118,129],[164,168,184],[86,88,97]] },
+  dirt_path: { type: 'others', name: '土径', shades: [[130,94,66],[106,76,54],[151,109,77],[79,57,40]] },
+  stone: { type: 'others', name: '石头', shades: [[96,96,96],[79,79,79],[112,112,112],[59,59,59]] },
+  oak_wood: { type: 'others', name: '木头', shades: [[123,102,62],[100,84,50],[143,119,72],[75,63,38]] },
+  podzol: { type: 'others', name: '灰化土', shades: [[111,74,42],[91,60,34],[129,86,49],[68,45,25]] },
+  netherrack: { type: 'others', name: '下界岩', shades: [[96,1,0],[79,1,0],[112,2,0],[59,1,0]] },
+  crimson_nylium: { type: 'others', name: '绯红菌岩', shades: [[163,41,42],[133,33,34],[189,48,49],[100,25,25]] },
+  crimson_stem: { type: 'others', name: '绯红菌柄', shades: [[127,54,83],[104,44,68],[148,63,97],[78,33,51]] },
+  crimson_hyphae: { type: 'others', name: '绯红菌核', shades: [[79,21,25],[64,17,20],[92,25,29],[48,13,15]] },
+  warped_nylium: { type: 'others', name: '诡异菌岩', shades: [[18,108,115],[15,88,94],[22,126,134],[11,66,70]] },
+  warped_stem: { type: 'others', name: '诡异菌柄', shades: [[50,122,120],[40,100,98],[58,142,140],[30,75,74]] },
+  warped_hyphae: { type: 'others', name: '诡异菌核', shades: [[74,37,53],[60,31,43],[86,44,62],[45,23,32]] },
+  warped_wart_block: { type: 'others', name: '诡异疣块', shades: [[17,155,114],[14,127,93],[20,180,133],[10,95,70]] },
+  deepslate: { type: 'others', name: '深板岩', shades: [[86,86,86],[70,70,70],[100,100,100],[52,52,52]] },
+};
+
+/** 地图画可用方块名（顺序与 MAP_BLOCK_DATA 一致） */
+const MAP_BLOCK_NAMES = Object.keys(MAP_BLOCK_DATA);
+
+export { MAP_BLOCK_DATA, MAP_BLOCK_NAMES };
