@@ -8,10 +8,31 @@ import { generateOutput, FORMAT_EXTENSIONS } from '../formatter.js';
 import { renderTextToImageData, colorizeText } from '../core/text-art.js';
 import { adjustPixels } from '../core/adjust.js';
 import { createZip } from '../core/zip.js';
+import {
+  FILL_BLOCKS,
+  pickSettings,
+  encodeSettings,
+  decodeSettings,
+  readStoredSettings,
+  writeStoredSettings
+} from './settings.js';
 
 const { createApp, ref, computed, onMounted, onBeforeUnmount, watch, nextTick } = Vue;
 
 const COMMON_BLOCKS = ['wool', 'concrete', 'terracotta', 'glass'];
+const SIZE_PRESETS = [16, 32, 64, 128, 256];
+
+/** 立体地形柱身的候选方块，与 settings.js 的白名单保持一致 */
+const FILL_LABELS = {
+  'minecraft:stone': '石头',
+  'minecraft:cobblestone': '圆石',
+  'minecraft:deepslate': '深板岩',
+  'minecraft:dirt': '泥土',
+  'minecraft:sandstone': '砂岩',
+  'minecraft:andesite': '安山岩',
+  'minecraft:netherrack': '下界岩',
+  'minecraft:snow_block': '雪块'
+};
 
 /** 单边最大像素与单文件最大体积，避免超大图把主线程卡死 */
 const MAX_IMAGE_DIMENSION = 8192;
@@ -40,8 +61,20 @@ createApp({
     // 强化地图画：用柱子高低差换额外色阶
     const mapArt = ref(false);
     const mapLayers = ref(8);
+    // 明暗灵敏度：相邻像素亮度差超过它才升降一格，越大起伏越少
+    const lumaThreshold = ref(4);
     // 0 表示不限制；其余为最多使用的方块种类
     const maxBlocks = ref(0);
+
+    /* ---------------- 立体浮雕 ---------------- */
+    const reliefMin = ref(1);
+    const reliefMax = ref(24);
+    const reliefShell = ref(1);
+    const reliefHollow = ref(false);
+    const reliefFill = ref(FILL_BLOCKS[0]);
+    const reliefCurve = ref('linear');
+    const reliefInvert = ref(false);
+    const isBundling = ref(false);
 
     // 图片预处理
     const brightness = ref(0);
@@ -125,6 +158,7 @@ createApp({
     let aspect = 1;
     let runToken = 0;
     let debounceTimer = null;
+    let persistTimer = null;
     let toastTimer = null;
 
     /* ---------------- 计算属性 ---------------- */
@@ -138,6 +172,18 @@ createApp({
     });
 
     const canConvert = computed(() => hasSource.value && selectedBlocks.value.length > 0);
+
+    const fillBlocks = computed(() =>
+      FILL_BLOCKS.map((value) => ({ value, label: FILL_LABELS[value] || value.replace('minecraft:', '') }))
+    );
+    const sizePresets = SIZE_PRESETS;
+    /** 一张地图 128×128，超过就要拼接，提前告诉用户要几张 */
+    const mapCount = computed(() =>
+      Math.max(1, Math.ceil(width.value / 128)) * Math.max(1, Math.ceil(height.value / 128))
+    );
+    const reliefVolume = computed(() =>
+      (width.value * height.value * Math.max(1, reliefMax.value)).toLocaleString('en-US')
+    );
 
     /* ---------------- 尺寸联动 ---------------- */
     let syncing = false;
@@ -157,6 +203,16 @@ createApp({
     // 地图画依赖柱子沿南北向的高度差，只能平铺
     watch(mapArt, (on) => {
       if (on && plane.value !== 'xz') plane.value = 'xz';
+    });
+
+    // 立体是地形，只做平铺；切到别的模式时地图画开关不该跟着残留
+    watch(mode, (value) => {
+      if (value !== 'image' && mapArt.value) mapArt.value = false;
+      if (value === 'relief' && plane.value !== 'xz') plane.value = 'xz';
+    });
+
+    watch([reliefMin, reliefMax], ([min, max]) => {
+      if (max < min) reliefMax.value = min;
     });
 
     /* ---------------- 交互 ---------------- */
@@ -263,6 +319,20 @@ createApp({
       selectedBlocks.value = COMMON_BLOCKS.filter((id) => allBlocks.value.includes(id));
     }
 
+    function applySizePreset(size) {
+      width.value = size;
+      height.value = size;
+    }
+
+    function resetAdjustments() {
+      brightness.value = 0;
+      contrast.value = 0;
+      saturation.value = 100;
+      gamma.value = 1;
+      grayscale.value = false;
+      invert.value = false;
+    }
+
     async function loadAvailableBlocks() {
       try {
         const response = await fetch('/api/blocks');
@@ -288,6 +358,92 @@ createApp({
         changelogs.value = Array.isArray(list) ? list : [];
       } catch {
         changelogs.value = [];
+      }
+    }
+
+    /* ---------------- 设置记忆与分享 ---------------- */
+    // 键名与 settings.js 的白名单一一对应；新增参数时两边一起加
+    const settingRefs = {
+      mode, format, width, height, lockAspect, plane, rotate, mirrorX, mirrorY,
+      metric, dither, serpentine, alphaThreshold, smoothScale, maxBlocks,
+      mapArt, mapLayers, lumaThreshold,
+      brightness, contrast, saturation, gamma, grayscale, invert,
+      reliefMin, reliefMax, reliefShell, reliefHollow, reliefFill, reliefCurve, reliefInvert,
+      text, fontFamily, fontSize, bold, italic, align, lineHeight, letterSpacing,
+      textColor, textTransparent, textThreshold, scaleX, scaleY, offsetX, offsetY, boldness,
+      selectedBlocks
+    };
+
+    function collectSettings() {
+      return pickSettings((key) => settingRefs[key]?.value);
+    }
+
+    /** 应用一组（已校验的）参数，并保证模式与摆放的约束成立 */
+    function applySettings(settings) {
+      for (const [key, value] of Object.entries(settings)) {
+        const target = settingRefs[key];
+        if (!target) continue;
+        target.value = Array.isArray(value) ? [...value] : value;
+      }
+      if (mapArt.value || mode.value === 'relief') plane.value = 'xz';
+      if (reliefMax.value < reliefMin.value) reliefMax.value = reliefMin.value;
+    }
+
+    function persistSettings() {
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        persistTimer = null;
+        writeStoredSettings(collectSettings());
+      }, 400);
+    }
+
+    /** 从 #s= 或 ?s= 恢复分享的参数，恢复后把参数从地址栏抹掉，避免重复覆盖用户改动 */
+    function restoreFromUrl() {
+      const payload = window.location.hash.startsWith('#s=')
+        ? window.location.hash.slice(3)
+        : new URLSearchParams(window.location.search).get('s');
+      if (!payload) return false;
+
+      const settings = decodeSettings(payload);
+      if (!settings) {
+        notify('分享链接已损坏或版本不兼容，已忽略', 'error');
+        return false;
+      }
+      applySettings(settings);
+
+      const next = new URL(window.location.href);
+      next.hash = '';
+      next.searchParams.delete('s');
+      window.history.replaceState(null, '', next.toString());
+      return true;
+    }
+
+    function buildShareUrl() {
+      const url = new URL(window.location.href);
+      url.hash = `s=${encodeSettings(collectSettings())}`;
+      return url.toString();
+    }
+
+    async function copyShareLink() {
+      const link = buildShareUrl();
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(link);
+        } else {
+          throw new Error('clipboard unavailable');
+        }
+        notify('分享链接已复制', 'success');
+      } catch {
+        // 非安全上下文（http 局域网访问）没有剪贴板权限，退回 execCommand
+        const area = document.createElement('textarea');
+        area.value = link;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        const ok = document.execCommand('copy');
+        area.remove();
+        notify(ok ? '分享链接已复制' : '复制失败，请手动复制地址栏链接', ok ? 'success' : 'error');
       }
     }
 
@@ -336,7 +492,8 @@ createApp({
         source = getImagePixels(imageElement, width.value, height.value, { smooth: smoothScale.value });
       }
 
-      return applyAdjustments(source);
+      // 文字模式的「图片调节」是隐藏的，参数不该偷偷作用到文字上
+      return mode.value === 'text' ? source : applyAdjustments(source);
     }
 
     /* ---------------- 主流程 ---------------- */
@@ -373,15 +530,13 @@ createApp({
 
       try {
         const usingMapArt = mapArt.value && mode.value === 'image';
-        if (usingMapArt && (width.value > 384 || height.value > 256)) {
-          throw new Error('强化地图画最大 384 × 256，请先调小尺寸');
-        }
+        const usingRelief = mode.value === 'relief';
 
         const imageData = buildImageData();
         if (token !== runToken) return;
 
         progress.value = 45;
-        progressMessage.value = '匹配方块颜色';
+        progressMessage.value = usingRelief ? '堆叠地形' : '匹配方块颜色';
         await nextTick();
 
         const next = processPixels(imageData, selectedBlocks.value, {
@@ -395,7 +550,16 @@ createApp({
           mirrorY: mirrorY.value,
           mapArt: usingMapArt,
           mapLayers: Number(mapLayers.value),
-          maxBlocks: Number(maxBlocks.value)
+          lumaThreshold: Number(lumaThreshold.value),
+          maxBlocks: Number(maxBlocks.value),
+          relief: usingRelief,
+          reliefMin: Number(reliefMin.value),
+          reliefMax: Number(reliefMax.value),
+          reliefShell: Number(reliefShell.value),
+          reliefHollow: reliefHollow.value,
+          reliefFill: reliefFill.value,
+          reliefCurve: reliefCurve.value,
+          reliefInvert: reliefInvert.value
         });
         if (token !== runToken) return;
         result = next;
@@ -420,7 +584,7 @@ createApp({
         stats.value = {
           width: result.size.x,
           height: isWall ? result.size.y : result.size.z,
-          layers: result.mapArt ? result.size.y : 0,
+          layers: result.mapArt || result.relief ? result.size.y : 0,
           totalBlocks: result.totalBlocks,
           blockTypes: result.counts.size,
           elapsed
@@ -452,9 +616,7 @@ createApp({
     async function generateCurrentFile(token) {
       if (!result) return;
       const output = await generateOutput(result, format.value, `sunpixel_${mode.value}`, {
-        name: mode.value === 'text'
-          ? `文字像素画 ${text.value.split('\n')[0].slice(0, 12)}`
-          : 'SunPixel 像素画'
+        name: outputName()
       });
       if (token !== undefined && token !== runToken) return;
       downloadBlob.value = output.blob;
@@ -481,11 +643,11 @@ createApp({
 
       const ctx = canvas.getContext('2d');
 
-      // 地图画自带「按明暗档位上色」的像素，直接贴上才看得出成品在游戏地图里的样子
+      // 地图画 / 立体自带「按明暗档位、按高度」上色的像素，直接贴上才看得出成品的样子
       if (current.previewPixels && current.previewPixels.width === w && current.previewPixels.height === h) {
         ctx.putImageData(new ImageData(new Uint8ClampedArray(current.previewPixels.data), w, h), 0, 0);
         hasPreview.value = true;
-        previewSize.value = `${w} × ${h} · 地图配色`;
+        previewSize.value = `${w} × ${h} · ${current.mapArt ? '地图配色' : '顶视图 · 按高度提亮'}`;
         fitMedia(canvas, w, h);
         return;
       }
@@ -495,9 +657,20 @@ createApp({
 
       for (let row = 0; row < h; row++) {
         for (let x = 0; x < w; x++) {
-          const y = isWall ? h - 1 - row : 0;
-          const z = isWall ? 0 : row;
-          const index = volume[(y * size.z + z) * size.x + x];
+          let index = 0;
+          if (isWall) {
+            // 竖立：从正面看，第 0 行在最上方
+            index = volume[((h - 1 - row) * size.z) * size.x + x];
+          } else {
+            // 平铺：从上方看，取这一列最高的非空气方块，立体地形的顶面才不会被空气盖住
+            for (let y = size.y - 1; y >= 0; y--) {
+              const value = volume[(y * size.z + row) * size.x + x];
+              if (value !== 0) {
+                index = value;
+                break;
+              }
+            }
+          }
           const color = colors[index];
           const offset = (row * w + x) * 4;
           if (!color) {
@@ -671,10 +844,79 @@ createApp({
       if (!result) return;
       const names = { blueprint: '搭建图纸', csv: '材料清单' };
       try {
-        const output = await generateOutput(result, kind, `sunpixel_${kind}`, { name: 'SunPixel 像素画' });
+        const output = await generateOutput(result, kind, `sunpixel_${kind}`, { name: outputName() });
         triggerDownload(output.blob, output.filename);
       } catch (error) {
         notify(`${names[kind] || kind}导出失败：${error.message}`, 'error');
+      }
+    }
+
+    function outputName() {
+      if (mode.value === 'text') return `文字像素画 ${text.value.split('\n')[0].slice(0, 12)}`;
+      return mode.value === 'relief' ? 'SunPixel 立体地形' : 'SunPixel 像素画';
+    }
+
+    /** 效果图放大成 PNG，打包时一起带上 */
+    function previewPngBlob(scale = 4) {
+      const source = previewCanvas.value;
+      if (!source || !source.width || !source.height) return Promise.resolve(null);
+      const canvas = document.createElement('canvas');
+      canvas.width = source.width * scale;
+      canvas.height = source.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+      return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'));
+    }
+
+    /**
+     * 一键打包：全部结构格式 + 图纸 + 材料清单 + 效果图
+     * 单个附加文件失败（例如方块太多、CSV 超限）只跳过它，不影响整体。
+     */
+    async function downloadBundle() {
+      if (!result || isBundling.value) return;
+      isBundling.value = true;
+      const meta = { name: outputName() };
+      const files = [];
+      const skipped = [];
+
+      try {
+        const formats = ['schem', 'litematic', 'mcstructure', 'nbt', 'mcfunction', 'json'];
+        for (let i = 0; i < formats.length; i++) {
+          const format = formats[i];
+          progressMessage.value = `打包 ${format}（${i + 1}/${formats.length}）`;
+          progress.value = Math.round(((i + 1) / (formats.length + 3)) * 100);
+          try {
+            const output = await generateOutput(result, format, `sunpixel_${mode.value}`, meta);
+            files.push({ name: output.filename, data: new Uint8Array(await output.blob.arrayBuffer()) });
+          } catch (error) {
+            // 例如方块太多超出结构方块文件上限，跳过它但不影响其他格式
+            skipped.push(`${format}：${error.message}`);
+          }
+        }
+
+        for (const extra of ['blueprint', 'csv']) {
+          try {
+            const output = await generateOutput(result, extra, `sunpixel_${extra}`, meta);
+            files.push({ name: output.filename, data: new Uint8Array(await output.blob.arrayBuffer()) });
+          } catch (error) {
+            skipped.push(`${extra}：${error.message}`);
+          }
+        }
+
+        const png = await previewPngBlob(4);
+        if (png) {
+          files.push({ name: '效果图.png', data: new Uint8Array(await png.arrayBuffer()) });
+        }
+
+        triggerDownload(createZip(files), `SunPixel_${mode.value}_${stats.value.width}x${stats.value.height}.zip`);
+        notify(skipped.length ? `已打包 ${files.length} 个文件，跳过：${skipped.join('；')}` : `已打包 ${files.length} 个文件`, skipped.length ? 'info' : 'success');
+      } catch (error) {
+        notify(`打包失败：${error.message}`, 'error');
+      } finally {
+        isBundling.value = false;
+        progress.value = 0;
+        progressMessage.value = '';
       }
     }
 
@@ -737,15 +979,23 @@ createApp({
     }
 
     onMounted(() => {
+      // 先恢复本机记住的参数，再让分享链接覆盖，最后才初始化方块与日志
+      const stored = readStoredSettings();
+      if (stored) applySettings(stored);
+      if (restoreFromUrl()) notify('已载入分享的参数', 'success');
+
       loadAvailableBlocks();
       loadChangelog();
       window.addEventListener('resize', handleResize);
+      if (hasSource.value) scheduleRun(0);
     });
 
     onBeforeUnmount(() => {
       window.removeEventListener('resize', handleResize);
       if (debounceTimer) clearTimeout(debounceTimer);
+      if (persistTimer) clearTimeout(persistTimer);
       if (toastTimer) clearTimeout(toastTimer);
+      writeStoredSettings(collectSettings());
     });
 
     /* ---------------- 参数变化自动重算 ---------------- */
@@ -754,15 +1004,22 @@ createApp({
         mode, width, height, plane, rotate, mirrorX, mirrorY, metric, dither, serpentine,
         alphaThreshold, smoothScale, selectedBlocks, text, fontFamily, fontSize, bold,
         italic, align, lineHeight, letterSpacing, textColor, textTransparent, textThreshold,
-        mapArt, mapLayers, maxBlocks, brightness, contrast, saturation, gamma, grayscale, invert,
-        scaleX, scaleY, offsetX, offsetY, boldness, customFont
+        mapArt, mapLayers, lumaThreshold, maxBlocks, brightness, contrast, saturation, gamma,
+        grayscale, invert, scaleX, scaleY, offsetX, offsetY, boldness, customFont,
+        reliefMin, reliefMax, reliefShell, reliefHollow, reliefFill, reliefCurve, reliefInvert
       ],
-      () => scheduleRun(),
+      () => {
+        scheduleRun();
+        persistSettings();
+      },
       { deep: true }
     );
 
+    watch(lockAspect, persistSettings);
+
     // 切换输出格式只重算文件，不必重跑像素流程
     watch(format, async () => {
+      persistSettings();
       if (!result) return;
       try {
         await generateCurrentFile();
@@ -774,7 +1031,9 @@ createApp({
     return {
       mode, format, width, height, lockAspect, plane, rotate, mirrorX, mirrorY,
       metric, dither, serpentine, alphaThreshold, smoothScale,
-      mapArt, mapLayers, maxBlocks,
+      mapArt, mapLayers, lumaThreshold, maxBlocks,
+      reliefMin, reliefMax, reliefShell, reliefHollow, reliefFill, reliefCurve, reliefInvert,
+      fillBlocks, sizePresets, mapCount, reliefVolume, isBundling,
       brightness, contrast, saturation, gamma, grayscale, invert,
       allBlocks, selectedBlocks, displayBlocks,
       text, fontFamily, fontSize, bold, italic, align, lineHeight, letterSpacing,
@@ -786,8 +1045,8 @@ createApp({
       previewCanvas, originalImg, fontInput, stats, materials, canConvert, downloadFilename, toast, runCount,
       triggerFileInput, handleDrop, handleFileUpload, loadImageFromUrl,
       handleFontFile, resetFont, exportCharacters, triggerFontInput,
-      toggleBlock, selectAll, clearAll, selectCommon,
-      startConversion, downloadFile, downloadExtra,
+      toggleBlock, selectAll, clearAll, selectCommon, applySizePreset, resetAdjustments,
+      startConversion, downloadFile, downloadExtra, downloadBundle, copyShareLink,
       formatChangelog, notify, FORMAT_EXTENSIONS
     };
   }

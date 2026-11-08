@@ -1,6 +1,6 @@
 {
   "name": "sunpixel-web",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "SunPixel - 像素画转Minecraft结构 (Cloudflare Pages)",
   "type": "module",
   "main": "index.html",

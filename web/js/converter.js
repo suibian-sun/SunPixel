@@ -1,7 +1,8 @@
 import { BLOCK_DATA, BLOCK_NAMES, BLOCK_DISPLAY_NAMES } from './block-data.js';
 import { buildPalette, createMatcher } from './core/color.js';
-import { pixelate } from './core/pixelate.js';
+import { pixelate, transformPixels } from './core/pixelate.js';
 import { pixelateMap } from './core/mapart.js';
+import { pixelateRelief } from './core/relief.js';
 import { limitPalette } from './core/palette-limit.js';
 import { MAP_BLOCK_DATA } from './data/map-colors.js';
 
@@ -44,6 +45,20 @@ function colorsForPalette(palette, entries) {
   return palette.map((name) => byBlock.get(name) || null);
 }
 
+/** 是否需要做旋转 / 镜像：地图画与浮雕由本函数自己处理，平面像素画交给 pixelate */
+function hasTransform(options) {
+  const rotate = ((Math.round((options.rotate || 0) / 90) * 90) % 360 + 360) % 360;
+  return rotate !== 0 || !!options.mirrorX || !!options.mirrorY;
+}
+
+/** 填充方块不在所选调色板里时，预览给一个中性灰，避免生成图片出现空洞 */
+function fallbackColor(name, entries) {
+  const hit = entries.find((entry) => entry.block === name);
+  if (hit) return hit.rgb;
+  if (name === 'minecraft:air') return null;
+  return [128, 128, 128];
+}
+
 /**
  * 主转换函数
  * @param {{width:number,height:number,data:Uint8ClampedArray}} imageData
@@ -51,11 +66,39 @@ function colorsForPalette(palette, entries) {
  * @param {object} options
  */
 function processPixels(imageData, blockTypes, options = {}) {
+  const matcher = createMatcherFromTypes(blockTypes, options.metric || 'lab', options.maxBlocks || 0);
+
+  if (options.relief) {
+    const oriented = hasTransform(options) ? transformPixels(imageData, options) : imageData;
+    // UI 用 reliefXxx 命名避免和图片调节的 invert 撞车，这里映射成核心参数名
+    const result = pixelateRelief(oriented, matcher, {
+      alphaThreshold: options.alphaThreshold,
+      minHeight: options.reliefMin,
+      maxHeight: options.reliefMax,
+      shellThickness: options.reliefShell,
+      hollow: options.reliefHollow,
+      fillBlock: options.reliefFill,
+      curve: options.reliefCurve,
+      invert: options.reliefInvert
+    });
+    return {
+      ...result,
+      colors: result.palette.map((name) => fallbackColor(name, matcher.entries)),
+      blockPalette: result.palette,
+      blockCounts: Object.fromEntries(
+        [...result.counts.entries()].map(([name, count]) => [name.replace('minecraft:', ''), count])
+      )
+    };
+  }
+
   if (options.mapArt) {
-    const result = pixelateMap(imageData, {
+    // 地图画同样要响应旋转与镜像，否则勾了旋转成品却不动
+    const oriented = hasTransform(options) ? transformPixels(imageData, options) : imageData;
+    const result = pixelateMap(oriented, {
       types: blockTypes,
       alphaThreshold: options.alphaThreshold,
-      mapLayers: options.mapLayers
+      mapLayers: options.mapLayers,
+      lumaThreshold: options.lumaThreshold
     });
     const entries = result.palette
       .filter((name) => name !== 'minecraft:air')
@@ -74,7 +117,6 @@ function processPixels(imageData, blockTypes, options = {}) {
     };
   }
 
-  const matcher = createMatcherFromTypes(blockTypes, options.metric || 'lab', options.maxBlocks || 0);
   const result = pixelate(imageData, matcher, options);
 
   return {

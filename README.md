@@ -1,12 +1,12 @@
 # SunPixel 项目文档
 
-> ## 🗺 V-2.2.0 地图画与图像调节
+> ## 🗺 V-2.3.0 立体浮雕与作品分享
 >
-> **本次吸收了 vue3-mcpixelart 与 minecraft-block-letter 的更多能力**：强化地图画用柱子高低差
-> 把 16 色方块扩成 48 档明暗；图片可先调亮度、对比度、饱和度、伽马；文字支持自定义字体、
-> 横向纵向缩放与描边加粗，并能逐字导出；备料可以限制到指定方块种类。
+> **本次把「平面像素画」推进到「三维地形」**：亮度直接变成柱高，照片会输出成山脊、沟谷与台地，
+> 柱身用统一填充方块，材料量可控；同时新增 `.nbt`（Java 结构方块）导出、一键打包下载，
+> 以及参数记忆与分享链接——设置能记住，也能发给别人复现同一份作品。
 >
-> 详细说明见 [web/Changelog/2026-11-08.md](web/Changelog/2026-11-08.md)。
+> 详细说明见 [web/Changelog/2026-11-08-v2.3.md](web/Changelog/2026-11-08-v2.3.md)。
 >
 > —— SunEcology · 2026年11月8日
 
@@ -21,13 +21,17 @@ SunPixel 是一个将图片转换为 Minecraft 结构文件的多功能工具，
 ### 核心功能
 
 - **图片转 Minecraft 结构**：将任意图片转换为 Minecraft 可用的结构文件
+- **立体浮雕**：按亮度生成柱高，照片变三维地形，可选高度范围、表面厚度、空心、反转与高度曲线
 - **文字像素画**：输入文字直接生成像素画，支持多行、字体、字号、行高、字距、对齐与描边锐化
-- **强化地图画**：用柱子高低差换取明暗，把 16 色方块扩成 48 档，可选 4 / 8 / 16 层起伏
+- **强化地图画**：用柱子高低差换取明暗，把 16 色方块扩成 48 档，可选 4 / 8 / 16 层起伏与明暗灵敏度
 - **逐字导出**：每个字符单独生成结构并打包成 zip，方便做字库或逐字搭建
+- **一键打包**：全部结构格式 + 搭建图纸 + 材料清单 + 效果图 PNG 合成一个 zip
+- **参数记忆与分享**：自动记住上次设置；参数可编码进链接，换设备也能复现
 - **多种输出格式**：
   - `.schem` - Sponge Schematic v2（VarInt 编码，WorldEdit / 投影台可直接读取）
   - `.litematic` - Litematica 模组投影（位打包 BlockStates）
   - `.mcstructure` - 基岩版结构文件
+  - `.nbt` - Java 结构方块文件（结构方块 / Amulet 可直接加载）
   - `.mcfunction` - 命令函数（连续方块自动合并为 fill）
   - `.json` - RunAway 交换格式
   - `.md` / `.csv` - 手动搭建图纸与材料清单
@@ -66,15 +70,18 @@ SunPixel/
 ├── web/                    # Web 版本（纯前端静态站）
 │   ├── index.html          # 页面结构与样式
 │   ├── js/
-│   │   ├── ui/app.js       # Vue 应用
+│   │   ├── ui/
+│   │   │   ├── app.js      # Vue 应用
+│   │   │   └── settings.js # 参数白名单、记忆与分享链接
 │   │   ├── converter.js    # 图片 → 像素画
 │   │   ├── formatter.js    # 输出格式分发
 │   │   ├── nbt-writer.js   # NBT 二进制编码
 │   │   ├── core/
 │   │   │   ├── color.js    # CIE Lab 颜色匹配
 │   │   │   ├── pixelate.js # 抖动、几何变换、体素化
+│   │   │   ├── relief.js   # 立体浮雕：亮度 → 柱高
 │   │   │   └── text-art.js # 文字渲染
-│   │   └── format/         # schem / litematic / mcstructure / mcfunction / runaway / blueprint
+│   │   └── format/         # schem / litematic / mcstructure / nbt / mcfunction / runaway / blueprint
 │   ├── functions/api/      # Cloudflare Pages Functions（方块列表、更新记录）
 │   ├── dev-server.mjs      # 本地开发服务器（同时托管静态文件与接口）
 │   ├── tests/              # 单元测试、格式校验、浏览器端到端测试
@@ -109,7 +116,7 @@ SunPixel/
   - `Vue 3`（`web/vendor/vue.global.prod.js`，随仓库发布，不依赖 CDN） - 界面
   - `Canvas 2D` - 缩放、取像素、文字渲染、效果图预览
   - `CompressionStream` - gzip 压缩 NBT
-  - 自研 NBT 编码器 - 生成 `.schem` / `.litematic` / `.mcstructure`
+  - 自研 NBT 编码器 - 生成 `.schem` / `.litematic` / `.mcstructure` / `.nbt`
 - **托管**：Cloudflare Pages（`functions/` 提供方块列表与更新记录接口）
 
 ### Go 版本
@@ -152,7 +159,9 @@ npm run test:e2e     # 真浏览器跑完整流程（需 playwright）
 ```
 
 - `tests/unit.test.mjs`：颜色匹配、抖动、透明、旋转镜像、摆放方向
-- `tests/formats.test.mjs`：把 `.schem` / `.litematic` / `.mcstructure` 等真实导出到临时目录，再用 Python 的 `nbtlib`（独立实现）解析回来逐体素比对
+- `tests/formats.test.mjs`：把 `.schem` / `.litematic` / `.mcstructure` / `.nbt` 等真实导出到临时目录，再用 Python 的 `nbtlib`（独立实现）解析回来逐体素比对
+- `tests/relief.test.mjs`：立体浮雕的高度、填充、空心、曲线与体积上限，并校验其导出的四种结构格式
+- `tests/settings.test.mjs`：分享链接编解码、非法参数回落、损坏链接拒绝
 - `tests/e2e.mjs`：启动本地服务 → 打开页面 → 文字模式与图片模式各转一次 → 下载文件 → 校验
 
 ### Go 版本

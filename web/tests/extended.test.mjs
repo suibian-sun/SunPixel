@@ -5,13 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-import { pixelateMap, buildMapPalette, computeDepths } from '../js/core/mapart.js';
+import { pixelateMap, buildMapPalette, computeDepths, MAX_MAP_WIDTH } from '../js/core/mapart.js';
 import { adjustPixels } from '../js/core/adjust.js';
 import { limitPalette } from '../js/core/palette-limit.js';
 import { buildPalette } from '../js/core/color.js';
 import { createZip, crc32 } from '../js/core/zip.js';
 import { BLOCK_DATA } from '../js/block-data.js';
 import { generateOutput } from '../js/formatter.js';
+import { processPixels } from '../js/converter.js';
 
 /** 造一张图：fn(x,z) 返回 [r,g,b,a] */
 function makeImage(width, height, fn) {
@@ -114,6 +115,76 @@ test('地图画：computeDepths 以像素自身明暗为准', () => {
 
   assert.deepEqual(Array.from(depth), [0, 1, 2, 1]);
   assert.equal(layers, 3);
+});
+
+test('地图画：旋转与镜像会真正作用到成品', () => {
+  // 4 × 2：左半黑、右半白，长宽不同，旋转后尺寸应交换
+  const image = makeImage(4, 2, (x) => (x < 2 ? [20, 21, 25, 255] : [233, 236, 239, 255]));
+
+  const plain = processPixels(image, ['wool'], { mapArt: true });
+  assert.deepEqual([plain.size.x, plain.size.z], [4, 2]);
+
+  const rotated = processPixels(image, ['wool'], { mapArt: true, rotate: 90, mirrorX: true });
+  assert.deepEqual([rotated.size.x, rotated.size.z], [2, 4], '旋转后宽高应交换');
+
+  // 顺时针 90° 后左列变顶行，黑色应在最上面
+  const blockAt = (result, x, z) => {
+    for (let y = result.size.y - 1; y >= 0; y--) {
+      const index = result.volume[(y * result.size.z + z) * result.size.x + x];
+      if (index !== 0) return result.palette[index];
+    }
+    return null;
+  };
+  assert.match(blockAt(rotated, 0, 0), /black_wool/, '旋转后左列应变成顶行（黑）');
+  assert.match(blockAt(rotated, 0, 3), /white_wool/, '旋转后右列应变成底行（白）');
+
+  const mirrored = processPixels(image, ['wool'], { mapArt: true, mirrorX: true });
+  assert.match(blockAt(mirrored, 0, 0), /white_wool/, '水平镜像后左侧应变白');
+});
+
+test('地图画：超过 384 × 256 会给出明确错误', () => {
+  assert.equal(MAX_MAP_WIDTH, 384);
+  const wide = makeImage(MAX_MAP_WIDTH + 1, 4, () => [200, 200, 200, 255]);
+  assert.throws(() => pixelateMap(wide, { types: ['wool'] }), /384|256/);
+});
+
+test('立体图纸：每层单独出图例，超过 62 种方块也不出现 ?', async () => {
+  const total = 70;
+  const palette = ['minecraft:air'];
+  for (let i = 1; i <= total; i++) palette.push(`minecraft:test_${i}`);
+
+  const size = { x: 10, y: 2, z: 1 };
+  const volume = new Int32Array(size.x * size.y * size.z);
+  const counts = new Map();
+  for (let x = 0; x < 10; x++) {
+    volume[(0 * 1 + 0) * 10 + x] = x + 1;          // 第 0 层：1-10
+    volume[(1 * 1 + 0) * 10 + x] = x + 31;         // 第 1 层：31-40
+  }
+  for (let i = 1; i <= total; i++) counts.set(palette[i], i <= 40 ? 1 : 0);
+
+  const result = {
+    width: 10,
+    height: 1,
+    plane: 'xz',
+    size,
+    palette,
+    volume,
+    counts,
+    airIndex: 0,
+    totalBlocks: 20,
+    totalVolume: volume.length
+  };
+
+  const output = await generateOutput(result, 'blueprint', 'sample');
+  const text = await output.blob.text();
+
+  const blocks = [...text.matchAll(/```text\n([\s\S]*?)```/g)].map((match) => match[1]);
+  assert.equal(blocks.length, 2, '两层应输出两张图');
+  for (const block of blocks) {
+    assert.ok(!block.includes('?'), '层内方块不到 62 种，不应出现 ?');
+  }
+  assert.equal((text.match(/图例：/g) || []).length, 2, '每层都应有自己的图例');
+  assert.match(text, /A=test_1/, '每层图例都从 A 开始编号');
 });
 
 test('地图画导出的 litematic / schem / mcstructure 都能被独立解析', async () => {

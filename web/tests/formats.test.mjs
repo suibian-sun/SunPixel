@@ -33,7 +33,7 @@ function buildResult(options = {}) {
 }
 
 async function writeOutputs(result, directory) {
-  for (const format of ['schem', 'litematic', 'mcstructure', 'mcfunction', 'json', 'blueprint', 'csv']) {
+  for (const format of ['schem', 'litematic', 'mcstructure', 'nbt', 'mcfunction', 'json', 'blueprint', 'csv']) {
     const output = await generateOutput(result, format, 'sample');
     const buffer = Buffer.from(await output.blob.arrayBuffer());
     writeFileSync(join(directory, output.filename), buffer);
@@ -90,6 +90,16 @@ test('导出文件能被独立的 nbtlib 正确解析', async (t) => {
     assert.ok(report.mcstructure.secondLayer.every((v) => v === -1));
     assert.deepEqual(report.mcstructure.origin, [0, 0, 0]);
   });
+
+  await t.test('nbt：结构方块文件能逐方块还原', () => {
+    assert.ok(!report.nbt.error, report.nbt.error);
+    assert.deepEqual(report.nbt.size, [4, 1, 2]);
+    assert.deepEqual(report.nbt.palette, result.palette);
+    assert.deepEqual(report.nbt.states, Array.from(result.volume));
+    assert.equal(report.nbt.blockCount, result.totalBlocks);
+    assert.equal(report.nbt.hasEntities, true);
+    assert.equal(report.nbt.author, 'SunPixel');
+  });
 });
 
 test('mcfunction 会合并连续方块并用相对坐标', async () => {
@@ -134,6 +144,18 @@ test('材料清单 CSV 行数等于实心方块数', async () => {
   assert.equal(lines.length - 1, result.totalBlocks);
 });
 
+test('竖立结构的图纸直接给正面图，不按层拆开', async () => {
+  const result = buildResult({ plane: 'xy' });
+  assert.equal(result.size.y, 2, '测试前提：竖立时应有两层高度');
+
+  const output = await generateOutput(result, 'blueprint', 'wall');
+  const text = await output.blob.text();
+
+  assert.ok(!text.includes('### Y ='), '竖立结构不该按层出图');
+  assert.equal((text.match(/```text/g) || []).length, 1, '应只有一张正面图');
+  assert.match(text, /竖立，贴墙/);
+});
+
 test('调色板超过 127 种方块时，VarInt 与位打包依旧正确', async () => {
   // 直接构造一份"大调色板"结构：索引会超过 127，VarInt 必须变成 2 字节，
   // 位打包也要跨 long 拼接——旧实现两种都会写坏。
@@ -156,7 +178,7 @@ test('调色板超过 127 种方块时，VarInt 与位打包依旧正确', async
   };
 
   const directory = mkdtempSync(join(tmpdir(), 'sunpixel-big-'));
-  for (const format of ['schem', 'litematic']) {
+  for (const format of ['schem', 'litematic', 'nbt']) {
     const output = await generateOutput(result, format, 'sample');
     writeFileSync(join(directory, output.filename), Buffer.from(await output.blob.arrayBuffer()));
   }
@@ -167,4 +189,7 @@ test('调色板超过 127 种方块时，VarInt 与位打包依旧正确', async
   assert.ok(!report.litematic.error, report.litematic.error);
   assert.deepEqual(report.litematic.states, Array.from(volume), '位打包解码结果不一致');
   assert.equal(report.litematic.palette.length, 201);
+  assert.ok(!report.nbt.error, report.nbt.error);
+  assert.deepEqual(report.nbt.states, Array.from(volume), '结构方块文件还原结果不一致');
+  assert.equal(report.nbt.palette.length, 201);
 });

@@ -78,6 +78,8 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined
 });
 const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 900 } });
+// 分享链接测试要读剪贴板
+await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: `http://127.0.0.1:${port}` });
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
@@ -269,7 +271,74 @@ try {
   });
   await waitRun(mark);
 
-  /* ---------- 9. 文字：字形拉伸与逐字导出 ---------- */
+  /* ---------- 9. 立体浮雕：高度统计、顶视图预览、.nbt 导出 ---------- */
+  mark = await runCount();
+  await page.click('#mode-relief');
+  await page.fill('#relief-max', '10');
+  await waitRun(mark);
+
+  assert.ok(
+    (await page.locator('.stat-card:has-text("层数")').count()) > 0,
+    '立体模式应显示高度层数'
+  );
+  const reliefPreview = await readPreview();
+  assert.ok(reliefPreview.opaque > 0, '立体模式预览是空的');
+  const reliefCaption = await page.locator('#preview-item figcaption').textContent();
+  assert.match(reliefCaption, /顶视图/, '立体预览应提示顶视图');
+
+  await page.selectOption('#format-select', 'nbt');
+  mark = await runCount();
+  await page.click('#convert-btn');
+  await waitRun(mark);
+  const nbtPath = await saveDownload(() => page.click('#download-file'), 'relief.nbt');
+  const nbtRaw = readFileSync(nbtPath);
+  assert.ok(gzipHead(nbtPath), '结构方块 .nbt 应是 gzip 压缩的 NBT');
+  assert.ok(nbtRaw.length > 100, '.nbt 文件过小');
+  results.push(['立体浮雕 .nbt', `${nbtPath} (${nbtRaw.length} B)`]);
+
+  const reliefDir = mkdtempSync(join(tmpdir(), 'sunpixel-relief-'));
+  writeFileSync(join(reliefDir, 'sample.nbt'), nbtRaw);
+  const reliefReport = JSON.parse(
+    execFileSync('python3', [join(here, 'validate_nbt.py'), reliefDir], { encoding: 'utf8' })
+  );
+  assert.ok(!reliefReport.nbt.error, reliefReport.nbt.error);
+  assert.equal(reliefReport.nbt.size[1], 10, '.nbt 高度应等于设定的最高高度');
+  assert.ok(reliefReport.nbt.blockCount > 0, '.nbt 里没有方块');
+  results.push(['结构方块校验', `${reliefReport.nbt.size.join('×')}，${reliefReport.nbt.blockCount} 个方块`]);
+
+  /* ---------- 10. 一键打包 ---------- */
+  const zipBundle = await saveDownload(() => page.click('#download-bundle'), 'bundle.zip');
+  const bundleNames = JSON.parse(
+    execFileSync(
+      'python3',
+      ['-c', 'import json,sys,zipfile; print(json.dumps(zipfile.ZipFile(sys.argv[1]).namelist()))', zipBundle],
+      { encoding: 'utf8' }
+    )
+  );
+  for (const ext of ['.schem', '.litematic', '.mcstructure', '.nbt', '.mcfunction', '.json', '.md', '.csv', '.png']) {
+    assert.ok(bundleNames.some((name) => name.endsWith(ext)), `打包里缺少 ${ext}：${bundleNames.join(',')}`);
+  }
+  results.push(['一键打包', `${bundleNames.length} 个文件`]);
+
+  /* ---------- 11. 分享链接能复现参数 ---------- */
+  await page.click('#copy-share');
+  const shareLink = await page.evaluate(() => navigator.clipboard.readText());
+  assert.match(shareLink, /#s=[A-Za-z0-9_-]+/, '分享链接里没有参数');
+  const sharedWidth = await page.inputValue('#width-input');
+
+  const shared = await context.newPage();
+  await shared.goto(shareLink, { waitUntil: 'networkidle' });
+  assert.equal(await shared.inputValue('#width-input'), sharedWidth, '分享链接没有还原宽度');
+  assert.ok(
+    (await shared.locator('#mode-relief.on').count()) > 0,
+    '分享链接没有还原到立体模式'
+  );
+  assert.doesNotMatch(shared.url(), /#s=/, '参数应用后应从地址栏清掉');
+  await shared.close();
+  results.push(['分享链接', `${shareLink.length} 字符，参数已还原`]);
+
+  /* ---------- 12. 文字：字形拉伸与逐字导出 ---------- */
+  await page.selectOption('#format-select', 'schem');
   await page.click('#mode-text');
   mark = await runCount();
   await page.fill('#text-input', 'AB');

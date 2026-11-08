@@ -3,12 +3,14 @@ import { generateLitematic } from './format/litematic.js';
 import { generateMcstructure } from './format/mcstructure.js';
 import { generateMcfunction } from './format/mcfunction.js';
 import { generateRunaway } from './format/runaway.js';
+import { generateStructureNbt } from './format/nbt.js';
 import { generateBlueprint, generateMaterialCsv } from './format/blueprint.js';
 
 const FORMAT_EXTENSIONS = {
   schem: 'schem',
   litematic: 'litematic',
   mcstructure: 'mcstructure',
+  nbt: 'nbt',
   mcfunction: 'mcfunction',
   json: 'json',
   blueprint: 'md',
@@ -19,6 +21,7 @@ const FORMAT_LABELS = {
   schem: 'Sponge 结构文件',
   litematic: 'Litematica 投影',
   mcstructure: '基岩版结构',
+  nbt: 'Java 结构方块文件',
   mcfunction: '命令函数',
   json: 'RunAway JSON',
   blueprint: '手动搭建图纸',
@@ -45,6 +48,9 @@ async function generateOutput(result, format, filename, meta = {}) {
       break;
     case 'mcstructure':
       output = { blob: await generateMcstructure(result, meta) };
+      break;
+    case 'nbt':
+      output = { blob: await generateStructureNbt(result, meta) };
       break;
     case 'mcfunction':
       output = generateMcfunction(result, meta);

@@ -111,7 +111,7 @@ function quantize(imageData, matcher, options = {}) {
       const r = clamp(rgb[i * 3]);
       const g = clamp(rgb[i * 3 + 1]);
       const b = clamp(rgb[i * 3 + 2]);
-      const idx = matcher.nearestExact(r, g, b);
+      const idx = matcher.nearest(r, g, b);
       indices[i] = idx;
 
       const target = entries[idx].rgb;

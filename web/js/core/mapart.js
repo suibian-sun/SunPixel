@@ -25,6 +25,10 @@ const SHADE_HIGH = 2;
 /** 地图最多用几层高低差，避免渐变区域把结构堆成塔 */
 const DEFAULT_LAYERS = 8;
 
+/** 单次生成的地图画上限（宽 × 高），超过后地图拼接成本过高 */
+const MAX_MAP_WIDTH = 384;
+const MAX_MAP_HEIGHT = 256;
+
 /**
  * 构建地图画调色板
  * @param {string[]} types 方块类型（wool / concrete / terracotta…），空则全部
@@ -206,6 +210,10 @@ function computeDepths(entryOf, entries, width, height, maxLayers = DEFAULT_LAYE
 function pixelateMap(imageData, options = {}) {
   const width = Math.max(1, Math.round(imageData.width));
   const height = Math.max(1, Math.round(imageData.height));
+  // 旋转 / 镜像在进入本函数前已经做过，这里按最终尺寸校验
+  if (width > MAX_MAP_WIDTH || height > MAX_MAP_HEIGHT) {
+    throw new Error(`强化地图画最大 ${MAX_MAP_WIDTH} × ${MAX_MAP_HEIGHT}，当前为 ${width} × ${height}`);
+  }
   const entries = buildMapPalette(options.types || []);
   const entryOf = quantizeMap({ ...imageData, width, height }, entries, options);
   const { depth, layers } = computeDepths(
@@ -285,6 +293,8 @@ export {
   SHADE_LOW,
   SHADE_HIGH,
   DEFAULT_LAYERS,
+  MAX_MAP_WIDTH,
+  MAX_MAP_HEIGHT,
   buildMapPalette,
   quantizeMap,
   computeDepths,

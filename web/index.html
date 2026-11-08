@@ -139,6 +139,8 @@
     details > *:not(summary) { margin-top: 10px; }
 
     .blocks { display: flex; flex-wrap: wrap; gap: 6px; }
+    .presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+    .presets .block-item { min-width: 44px; text-align: center; }
     .block-item {
         font: inherit;
         font-size: 12px;
@@ -300,11 +302,12 @@
         <div class="tabs">
             <button id="mode-image" :class="{ on: mode === 'image' }" @click="mode = 'image'">图片</button>
             <button id="mode-text" :class="{ on: mode === 'text' }" @click="mode = 'text'">文字</button>
+            <button id="mode-relief" :class="{ on: mode === 'relief' }" @click="mode = 'relief'">立体</button>
         </div>
 
         <section class="panel">
-            <!-- 图片输入 -->
-            <template v-if="mode === 'image'">
+            <!-- 图片输入：图片与立体模式共用 -->
+            <template v-if="mode !== 'text'">
                 <div class="drop" @click="triggerFileInput" @dragover.prevent @drop.prevent="handleDrop">
                     <input id="file-input" ref="fileInput" type="file" accept="image/*" hidden @change="handleFileUpload">
                     <span class="drop-main">点击选择图片，或拖拽到这里</span>
@@ -370,6 +373,45 @@
                 </div>
             </template>
 
+            <!-- 立体浮雕：亮度决定柱高，表面用图片配色，柱身用填充方块 -->
+            <template v-if="mode === 'relief'">
+                <div class="grid g4" style="margin-top:16px">
+                    <label class="field">
+                        <span>最低高度</span>
+                        <input id="relief-min" type="number" class="input" v-model.number="reliefMin" min="1" max="64">
+                    </label>
+                    <label class="field">
+                        <span>最高高度</span>
+                        <input id="relief-max" type="number" class="input" v-model.number="reliefMax" min="1" max="128">
+                    </label>
+                    <label class="field">
+                        <span>表面厚度</span>
+                        <input id="relief-shell" type="number" class="input" v-model.number="reliefShell" min="1" max="8">
+                    </label>
+                    <label class="field">
+                        <span>高度曲线</span>
+                        <select id="relief-curve" class="input" v-model="reliefCurve">
+                            <option value="linear">线性</option>
+                            <option value="sqrt">抬高低处（平缓）</option>
+                            <option value="square">压低低处（陡峭）</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="grid g4">
+                    <label class="field">
+                        <span>柱身填充方块</span>
+                        <select id="relief-fill" class="input" v-model="reliefFill">
+                            <option v-for="item in fillBlocks" :key="item.value" :value="item.value">{{ item.label }}</option>
+                        </select>
+                    </label>
+                    <div class="checks" style="grid-column: span 3; align-items:flex-end; padding-bottom:7px">
+                        <label><input id="relief-hollow" type="checkbox" v-model="reliefHollow"> 空心（只留表层，省材料）</label>
+                        <label><input id="relief-invert" type="checkbox" v-model="reliefInvert"> 反转高度（暗处更高）</label>
+                    </div>
+                </div>
+                <p class="hint">亮的地方更高，暗的地方更低，照片会变成山脊与沟谷。表面厚度指柱顶保留图片配色的层数，再往下用填充方块；勾选空心则下方留空。</p>
+            </template>
+
             <hr class="hr">
 
             <div class="grid g4">
@@ -378,14 +420,14 @@
                     <input id="width-input" type="number" class="input" v-model.number="width" min="1" max="512">
                 </label>
                 <label class="field">
-                    <span>{{ mode === 'text' ? '画布高（方块）' : '高度（方块）' }}</span>
+                    <span>{{ mode === 'text' ? '画布高（方块）' : (mode === 'relief' ? '深度（方块）' : '高度（方块）') }}</span>
                     <input id="height-input" type="number" class="input" v-model.number="height" min="1" max="512">
                 </label>
                 <label class="field">
                     <span>摆放</span>
-                    <select id="plane-select" class="input" v-model="plane">
+                    <select id="plane-select" class="input" v-model="plane" :disabled="mapArt || mode === 'relief'">
                         <option value="xz">平铺（地面）</option>
-                        <option value="xy" :disabled="mapArt">竖立（墙面）</option>
+                        <option value="xy" :disabled="mapArt || mode === 'relief'">竖立（墙面）</option>
                     </select>
                 </label>
                 <label class="field">
@@ -398,8 +440,17 @@
                     </select>
                 </label>
             </div>
+            <div class="presets">
+                <span class="hint" style="margin:0 4px 0 0">常用尺寸</span>
+                <button v-for="preset in sizePresets" :key="preset"
+                        class="block-item" :class="{ selected: width === preset && height === preset }"
+                        @click="applySizePreset(preset)">{{ preset }}</button>
+            </div>
+            <p class="hint" v-if="mode === 'relief'">
+                立体结构约 {{ reliefVolume }} 个方块位（宽 × 高 × 深）；上限 800 万，超了请调低最高高度。
+            </p>
             <div class="checks">
-                <label v-if="mode === 'image'"><input type="checkbox" v-model="lockAspect"> 锁定原图比例</label>
+                <label v-if="mode !== 'text'"><input type="checkbox" v-model="lockAspect"> 锁定原图比例</label>
                 <label><input type="checkbox" v-model="mirrorX"> 水平镜像</label>
                 <label><input type="checkbox" v-model="mirrorY"> 垂直镜像</label>
                 <label v-if="mode === 'image'"><input id="mapart-toggle" type="checkbox" v-model="mapArt"> 强化地图画</label>
@@ -413,8 +464,12 @@
                         <option :value="16">16 层（细节多）</option>
                     </select>
                 </label>
-                <p class="hint" style="grid-column: span 3; margin: 0; align-self: end">
-                    每列只放一格方块，用柱子高低差让地图多出两档明暗，16 色方块变 48 档。仅支持平铺，最大 384 × 256；固定使用支持地图色的方块，不受抖动与方块种类限制影响。
+                <label class="field">
+                    <span>明暗灵敏度 {{ lumaThreshold }}</span>
+                    <input id="map-luma" type="range" v-model.number="lumaThreshold" min="0" max="24">
+                </label>
+                <p class="hint" style="grid-column: span 2; margin: 0; align-self: end">
+                    每列只放一格方块，用柱子高低差让地图多出两档明暗，16 色方块变 48 档。仅支持平铺，最大 384 × 256；当前尺寸需要 {{ mapCount }} 张地图拼接。
                 </p>
             </div>
 
@@ -435,25 +490,25 @@
                 <div class="grid g4">
                     <label class="field">
                         <span>颜色匹配</span>
-                        <select class="input" v-model="metric">
+                        <select class="input" v-model="metric" :disabled="mapArt">
                             <option value="lab">CIE Lab（更准）</option>
                             <option value="rgb">RGB 加权（更快）</option>
                         </select>
                     </label>
                     <label class="field">
                         <span>抖动</span>
-                        <select class="input" v-model="dither">
+                        <select class="input" v-model="dither" :disabled="mapArt">
                             <option value="none">关闭</option>
                             <option value="floyd">Floyd–Steinberg</option>
                         </select>
                     </label>
-                    <label class="field" v-if="mode === 'image'">
+                    <label class="field" v-if="mode !== 'text'">
                         <span>透明阈值 {{ alphaThreshold }}</span>
                         <input type="range" v-model.number="alphaThreshold" min="1" max="254">
                     </label>
                     <label class="field">
                         <span>最多方块种类</span>
-                        <select id="max-blocks" class="input" v-model.number="maxBlocks">
+                        <select id="max-blocks" class="input" v-model.number="maxBlocks" :disabled="mapArt">
                             <option :value="0">不限制（最准）</option>
                             <option :value="8">8 种</option>
                             <option :value="12">12 种</option>
@@ -464,12 +519,13 @@
                 </div>
                 <div class="checks">
                     <label v-if="dither === 'floyd'"><input type="checkbox" v-model="serpentine"> 蛇形扫描</label>
-                    <label v-if="mode === 'image'"><input type="checkbox" v-model="smoothScale"> 缩放时平滑</label>
+                    <label v-if="mode !== 'text'"><input type="checkbox" v-model="smoothScale"> 缩放时平滑</label>
                 </div>
+                <p class="hint" v-if="mapArt">地图画固定使用支持地图色的方块，颜色匹配、抖动与方块种类上限不参与计算。</p>
                 <p class="hint">透明阈值：alpha 低于该值的像素视为空气，用来保留 PNG 的镂空区域。</p>
             </details>
 
-            <details v-if="mode === 'image'">
+            <details v-if="mode !== 'text'">
                 <summary>图片调节</summary>
                 <div class="grid g4">
                     <label class="field">
@@ -492,8 +548,9 @@
                 <div class="checks">
                     <label><input type="checkbox" v-model="grayscale"> 灰度（黑白）</label>
                     <label><input type="checkbox" v-model="invert"> 反色</label>
+                    <button id="reset-adjust" class="btn btn-ghost btn-sm" @click="resetAdjustments">重置调节</button>
                 </div>
-                <p class="hint">调节在配方块颜色之前生效，适合先把过暗、发灰的原图拉开层次。</p>
+                <p class="hint">调节在配方块颜色之前生效，适合先把过暗、发灰的原图拉开层次。立体模式下亮度同时决定柱高。</p>
             </details>
 
             <details v-if="mode === 'text'">
@@ -538,6 +595,7 @@
                     <option value="schem">.schem — Sponge 结构（WorldEdit / 投影台）</option>
                     <option value="litematic">.litematic — Litematica 投影</option>
                     <option value="mcstructure">.mcstructure — 基岩版结构</option>
+                    <option value="nbt">.nbt — Java 结构方块</option>
                     <option value="mcfunction">.mcfunction — 命令函数</option>
                     <option value="json">.json — RunAway 交换格式</option>
                 </select>
@@ -546,12 +604,12 @@
                 </button>
                 <button id="download-file" class="btn btn-ghost" :disabled="!downloadFilename" @click="downloadFile">下载</button>
             </div>
-            <p class="status" v-if="isConverting">{{ progressMessage }} {{ progress }}%</p>
+            <p class="status" v-if="isConverting || isBundling">{{ progressMessage }} {{ progress }}%</p>
             <p class="status error" v-if="errorMessage">{{ errorMessage }}</p>
         </section>
 
-        <div class="preview" :class="{ single: !(mode === 'image' && originalPreview) }" v-if="showPreview">
-            <figure v-if="mode === 'image' && originalPreview">
+        <div class="preview" :class="{ single: !(mode !== 'text' && originalPreview) }" v-if="showPreview">
+            <figure v-if="mode !== 'text' && originalPreview">
                 <div class="checker"><img ref="originalImg" :src="originalPreview" alt="原图预览"></div>
                 <figcaption><span>原图</span><span>{{ imageSize }}</span></figcaption>
             </figure>
@@ -565,7 +623,7 @@
             <div class="stats">
                 <div class="stat-card">
                     <div class="stat-value">{{ stats.width }} × {{ stats.height }}</div>
-                    <div class="stat-label">平面尺寸（方块）</div>
+                    <div class="stat-label">{{ mode === 'relief' ? '占地尺寸（方块）' : '平面尺寸（方块）' }}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">{{ stats.totalBlocks }}</div>
@@ -596,13 +654,17 @@
             </template>
 
             <div class="actions" style="margin-top:16px">
+                <button id="download-bundle" class="btn btn-ghost btn-sm" :disabled="isBundling" @click="downloadBundle">
+                    {{ isBundling ? '打包中…' : '打包下载 .zip' }}
+                </button>
                 <button id="download-blueprint" class="btn btn-ghost btn-sm" @click="downloadExtra('blueprint')">搭建图纸 .md</button>
                 <button id="download-csv" class="btn btn-ghost btn-sm" @click="downloadExtra('csv')">材料清单 .csv</button>
                 <button id="download-chars" v-if="mode === 'text'" class="btn btn-ghost btn-sm" :disabled="isExportingChars" @click="exportCharacters">
                     {{ isExportingChars ? '导出中…' : '逐字导出 .zip' }}
                 </button>
+                <button id="copy-share" class="btn btn-ghost btn-sm" @click="copyShareLink">复制分享链接</button>
             </div>
-            <p class="hint">不想装投影模组时，可按搭建图纸逐行摆放，图纸里带图例和材料统计。</p>
+            <p class="hint">打包下载包含全部结构格式、搭建图纸、材料清单与效果图 PNG。不想装投影模组时，可按搭建图纸逐行摆放。</p>
         </section>
 
         <p class="footer">SunPixel · 由 SunEcology 维护 · <a href="https://github.com/suibian-sun/SunPixel" target="_blank" rel="noopener">源码</a></p>

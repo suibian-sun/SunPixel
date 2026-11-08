@@ -138,24 +138,12 @@ function createMatcher(palette, metric = 'lab') {
     return best;
   }
 
-  /** 调色板里与某 RGB 最接近的条目（抖动时按真实距离取，不做量化） */
-  function nearestExact(r, g, b) {
-    let best = 0;
-    let bestDistance = Infinity;
-    for (let i = 0; i < entries.length; i++) {
-      const dr = r - rgbs[i][0];
-      const dg = g - rgbs[i][1];
-      const db = b - rgbs[i][2];
-      const d = dr * dr + dg * dg + db * db;
-      if (d < bestDistance) {
-        bestDistance = d;
-        best = i;
-      }
-    }
-    return best;
-  }
-
-  return { nearest, nearestExact, entries, cache };
+  /**
+   * 抖动时也走同一套距离度量与量化缓存。
+   * 旧实现用 RGB 欧氏距离扩散误差，和「颜色匹配：CIE Lab」不一致，
+   * 渐变区域会出现明明选了 Lab 却按 RGB 取色的偏色。
+   */
+  return { nearest, entries, cache };
 }
 
 export { rgbToLab, parseColorKey, buildPalette, createMatcher, D65 };

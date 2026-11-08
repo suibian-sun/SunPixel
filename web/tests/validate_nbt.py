@@ -116,6 +116,26 @@ def check_mcstructure(path: Path):
     }
 
 
+def check_nbt(path: Path):
+    """Java 结构方块文件：size 是 3 个 int 的列表，blocks 里每条带 pos 与 state。"""
+    root = load(path)
+    size = as_int_list(root["size"])
+    sx, sy, sz = size
+    palette = [str(entry["Name"]) for entry in root["palette"]]
+    states = [0] * (sx * sy * sz)
+    for entry in root["blocks"]:
+        x, y, z = as_int_list(entry["pos"])
+        states[(y * sz + z) * sx + x] = int(entry["state"])
+    return {
+        "size": size,
+        "palette": palette,
+        "states": states,
+        "blockCount": len(root["blocks"]),
+        "author": str(root.get("author", "")),
+        "hasEntities": "entities" in root,
+    }
+
+
 def main():
     directory = Path(sys.argv[1])
     report = {}
@@ -123,6 +143,7 @@ def main():
         ("schem", check_schem),
         ("litematic", check_litematic),
         ("mcstructure", check_mcstructure),
+        ("nbt", check_nbt),
     ):
         path = directory / f"sample.{name}"
         try:
