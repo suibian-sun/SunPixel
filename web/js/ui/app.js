@@ -629,6 +629,99 @@ createApp({
      *  - 平铺（xz）：从上方看，行 = Z
      *  - 竖立（xy）：从正面看，行 = Y（第 0 行在最上方）
      */
+    /**
+     * 立体的等距视图：画出柱体侧面与顶面，起伏和朝向一眼可见。
+     * 单纯的顶视图只能看到颜色，看不出「山有多高」。
+     */
+    function drawReliefPreview(current) {
+      const canvas = previewCanvas.value;
+      if (!canvas) return;
+
+      const { size, volume, colors } = current;
+      const TW = 4; // 一格宽 4px，2:1 等距
+      const TH = 2;
+      const span = size.x + size.z;
+
+      canvas.width = span * (TW / 2) + TW;
+      canvas.height = span * (TH / 2) + size.y * TH + TH * 2;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const offsetX = size.z * (TW / 2) + TW / 2;
+      const offsetY = size.y * TH + TH;
+
+      const tops = new Int32Array(size.x * size.z);
+      for (let z = 0; z < size.z; z++) {
+        for (let x = 0; x < size.x; x++) {
+          for (let y = size.y - 1; y >= 0; y--) {
+            const index = volume[(y * size.z + z) * size.x + x];
+            if (index !== 0) {
+              tops[z * size.x + x] = (y + 1) * 4096 + index;
+              break;
+            }
+          }
+        }
+      }
+
+      const shade = (rgb, factor) =>
+        `rgb(${Math.round(rgb[0] * factor)},${Math.round(rgb[1] * factor)},${Math.round(rgb[2] * factor)})`;
+
+      // 由远及近：屏幕位置越靠下越近，后画的自然遮住前一根柱子
+      for (let sum = 0; sum <= span - 2; sum++) {
+        const from = Math.max(0, sum - (size.z - 1));
+        const to = Math.min(size.x - 1, sum);
+        for (let x = from; x <= to; x++) {
+          const z = sum - x;
+          const packed = tops[z * size.x + x];
+          if (!packed) continue;
+
+          const h = Math.floor(packed / 4096);
+          const rgb = colors[packed % 4096];
+          if (!rgb) continue;
+
+          const cx = offsetX + (x - z) * (TW / 2);
+          const cy = offsetY + (x + z) * (TH / 2) - h * TH;
+          const bottom = cy + h * TH;
+          const half = TW / 2;
+          const halfH = TH / 2;
+
+          // 左面偏亮、右面偏暗，模拟从左上打光
+          ctx.fillStyle = shade(rgb, 0.82);
+          ctx.beginPath();
+          ctx.moveTo(cx - half, cy);
+          ctx.lineTo(cx, cy + halfH);
+          ctx.lineTo(cx, bottom + halfH);
+          ctx.lineTo(cx - half, bottom);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = shade(rgb, 0.62);
+          ctx.beginPath();
+          ctx.moveTo(cx, cy + halfH);
+          ctx.lineTo(cx + half, cy);
+          ctx.lineTo(cx + half, bottom);
+          ctx.lineTo(cx, bottom + halfH);
+          ctx.closePath();
+          ctx.fill();
+
+          // 顶面
+          ctx.fillStyle = shade(rgb, 1);
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - halfH);
+          ctx.lineTo(cx + half, cy);
+          ctx.lineTo(cx, cy + halfH);
+          ctx.lineTo(cx - half, cy);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      hasPreview.value = true;
+      previewSize.value = `${size.x} × ${size.z} · 等距视图`;
+      fitMedia(canvas, canvas.width, canvas.height);
+    }
+
     function drawPreview(current) {
       const canvas = previewCanvas.value;
       if (!canvas) return;
@@ -637,6 +730,11 @@ createApp({
       const isWall = planeMode === 'xy';
       const w = size.x;
       const h = isWall ? size.y : size.z;
+
+      if (current.relief) {
+        drawReliefPreview(current);
+        return;
+      }
 
       canvas.width = w;
       canvas.height = h;

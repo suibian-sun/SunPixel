@@ -284,7 +284,7 @@ try {
   const reliefPreview = await readPreview();
   assert.ok(reliefPreview.opaque > 0, '立体模式预览是空的');
   const reliefCaption = await page.locator('#preview-item figcaption').textContent();
-  assert.match(reliefCaption, /顶视图/, '立体预览应提示顶视图');
+  assert.match(reliefCaption, /等距视图/, '立体预览应提示等距视图');
 
   await page.selectOption('#format-select', 'nbt');
   mark = await runCount();
