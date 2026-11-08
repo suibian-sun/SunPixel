@@ -312,6 +312,11 @@ go build -o sunpixel ./cmd/main
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
+## 致谢
+
+- [TgkRuobin/vue3-mcpixelart](https://github.com/TgkRuobin/vue3-mcpixelart)（Apache-2.0）：强化地图画的思路，以及地图色数据 —— `web/js/data/map-colors.js` 由其 `blocksArt.json` 提取，只保留颜色值，算法为本项目重新实现
+- [TgkRuobin/minecraft-block-letter](https://github.com/TgkRuobin/minecraft-block-letter)（MIT）：字符投影、字形缩放与逐字导出的思路
+
 ## 许可证
 
 MIT License
